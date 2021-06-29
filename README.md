@@ -1,4 +1,4 @@
-# This is the code for the Media Serverless Search project
+# This is the code for the aws-kendra-transcribe-search project
 
 This solution makes audio and video media content searchable in an Amazon Kendra index.
 The user provides the details of an Amazon S3 bucket containing the media files to this solution. The solution uses Amazon Transcribe to create a time marked transcript of the solution. This transcript is ingested in an Amazon Kendra search index. A web application is provided to run search queries to the Amazon Kendra index. The application uses the time markers from the search result excerpts to start the media players at the offset of the result.
