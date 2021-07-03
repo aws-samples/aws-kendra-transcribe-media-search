@@ -163,7 +163,8 @@ Resources:
                   - 'arn:aws:kendra:${region}:${account}:index/${index}'
                   - region: !Ref 'AWS::Region'
                     account: !Ref 'AWS::AccountId'
-                    index: !GetAtt MSLessKendraIndex.Id
+                    #index: !GetAtt MSLessKendraIndex.Id
+                    index: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
                 Action:
                   - 'kendra:DescribeIndex'
                   - 'kendra:SubmitFeedback'
@@ -180,6 +181,7 @@ Resources:
   ##Create the Role needed to create a Kendra Index
   KendraIndexRole:
     Type: 'AWS::IAM::Role'
+    Condition: CreateIndex
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -223,6 +225,7 @@ Resources:
   ##Create the Kendra Index
   MSLessKendraIndex:
     Type: 'AWS::Kendra::Index'
+    Condition: CreateIndex
     Properties:
       Edition: 'DEVELOPER_EDITION'
       Name: !Join
@@ -235,7 +238,8 @@ Resources:
   KendraMSLessDS:
     Type: 'AWS::Kendra::DataSource'
     Properties: 
-      IndexId: !GetAtt MSLessKendraIndex.Id
+      #IndexId: !GetAtt MSLessKendraIndex.Id
+      IndexId: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
       Name: !Join
         - ''
         - - !Ref 'AWS::StackName'
@@ -278,7 +282,8 @@ Resources:
                   - 'arn:aws:kendra:${region}:${account}:index/${index}*'
                   - region: !Ref 'AWS::Region'
                     account: !Ref 'AWS::AccountId'
-                    index: !GetAtt MSLessKendraIndex.Id
+                    #index: !GetAtt MSLessKendraIndex.Id
+                    index: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
                 Action:
                   - 'kendra:*'
               - Effect: Allow
@@ -313,7 +318,8 @@ Resources:
           MEDIA_BUCKET: !Ref MediaBucket
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
           MEDIA_FILE_TABLE: !Ref MSLessDynamoTable
-          INDEX_ID: !GetAtt MSLessKendraIndex.Id
+          #INDEX_ID: !GetAtt MSLessKendraIndex.Id
+          INDEX_ID: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMSLessDS.Id
           STACK_NAME: !Ref AWS::StackName
   
@@ -332,7 +338,8 @@ Resources:
           MEDIA_BUCKET: !Ref MediaBucket
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
           MEDIA_FILE_TABLE: !Ref MSLessDynamoTable
-          INDEX_ID: !GetAtt MSLessKendraIndex.Id
+          #INDEX_ID: !GetAtt MSLessKendraIndex.Id
+          INDEX_ID: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMSLessDS.Id
           STACK_NAME: !Ref AWS::StackName
   
@@ -444,7 +451,8 @@ Resources:
         - Name: REACT_APP_IDENTITY_POOL_ID
           Value: !Ref IdentityPool
         - Name: REACT_APP_INDEX_ID
-          Value: !GetAtt MSLessKendraIndex.Id
+          #Value: !GetAtt MSLessKendraIndex.Id
+          Value: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
         - Name: REACT_APP_PROJECT_REGION
           Value: !Ref 'AWS::Region'
         - Name: REACT_APP_REGION
@@ -495,6 +503,15 @@ Parameters:
       - '12 hours'
       - '24 hours'
     Description: 'Please provide how frequently you want to synchronize the S3 bucket with the Kendra index - 6 hours, 12 hours, 24 hours. The default is 24 hours'
+  ExistingIndexId:
+    Default: ''
+    Type: String
+    Description: "Leave this empty to create a new index or provide the index id of the existing Kendra index to be used"
+    
+Conditions:
+  CreateIndex: !Equals 
+    - !Ref ExistingIndexId
+    - ''
     
 Outputs:
   UserPoolClientID: 
@@ -516,9 +533,11 @@ Outputs:
   Application:
     Value: !Ref AmplifyApp
   KendraMSLessIndexRoleArn: 
-    Value: !GetAtt KendraIndexRole.Arn 
+    #Value: !GetAtt KendraIndexRole.Arn 
+    Value: !If [CreateIndex, !GetAtt KendraIndexRole.Arn, "No new role created as we are using Existing Index"]
   KendraIndexID:
-    Value: !GetAtt MSLessKendraIndex.Id
+    #Value: !GetAtt MSLessKendraIndex.Id
+    Value: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
   KendraDataSourceID:
     Value: !GetAtt KendraMSLessDS.Id
   ReactAppCognitoRegion:
@@ -526,7 +545,8 @@ Outputs:
   ReactAppIdentityPoolId:
     Value: !Ref IdentityPool
   ReactAppIndexId:
-    Value: !GetAtt MSLessKendraIndex.Id
+    #Value: !GetAtt MSLessKendraIndex.Id
+    Value: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
   ReactAppProjectRegion:
     Value: !Ref 'AWS::Region'
   ReactAppRegion:
