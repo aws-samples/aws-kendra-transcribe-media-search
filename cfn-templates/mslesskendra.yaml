@@ -163,7 +163,6 @@ Resources:
                   - 'arn:aws:kendra:${region}:${account}:index/${index}'
                   - region: !Ref 'AWS::Region'
                     account: !Ref 'AWS::AccountId'
-                    #index: !GetAtt MSLessKendraIndex.Id
                     index: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
                 Action:
                   - 'kendra:DescribeIndex'
@@ -238,7 +237,6 @@ Resources:
   KendraMSLessDS:
     Type: 'AWS::Kendra::DataSource'
     Properties: 
-      #IndexId: !GetAtt MSLessKendraIndex.Id
       IndexId: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
       Name: !Join
         - ''
@@ -282,7 +280,6 @@ Resources:
                   - 'arn:aws:kendra:${region}:${account}:index/${index}*'
                   - region: !Ref 'AWS::Region'
                     account: !Ref 'AWS::AccountId'
-                    #index: !GetAtt MSLessKendraIndex.Id
                     index: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
                 Action:
                   - 'kendra:*'
@@ -301,6 +298,10 @@ Resources:
                 Resource: '*'
                 Action:
                   - 'transcribe:*'
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                  - 'amplify:*'
           PolicyName: MSLessLambdaPolicy
           
   S3CrawlLambdaFunction:
@@ -312,13 +313,15 @@ Resources:
       Timeout: 300
       Code:
         S3Bucket: !Ref 'S3CodeBucket'
-        S3Key: !Ref 'S3CrawlLambdaKey'
+        S3Key: !Join
+          - ''
+          - - !Ref 'S3CodeFolderPrefix'
+            - 's3crawler.zip'
       Environment:
         Variables:
           MEDIA_BUCKET: !Ref MediaBucket
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
           MEDIA_FILE_TABLE: !Ref MSLessDynamoTable
-          #INDEX_ID: !GetAtt MSLessKendraIndex.Id
           INDEX_ID: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMSLessDS.Id
           STACK_NAME: !Ref AWS::StackName
@@ -332,13 +335,15 @@ Resources:
       Timeout: 300
       Code:
         S3Bucket: !Ref 'S3CodeBucket'
-        S3Key: !Ref 'S3JobCompletionLambdaKey'
+        S3Key: !Join
+          - ''
+          - - !Ref 'S3CodeFolderPrefix'
+            - 'jobcomplete.zip'
       Environment:
         Variables:
           MEDIA_BUCKET: !Ref MediaBucket
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
           MEDIA_FILE_TABLE: !Ref MSLessDynamoTable
-          #INDEX_ID: !GetAtt MSLessKendraIndex.Id
           INDEX_ID: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMSLessDS.Id
           STACK_NAME: !Ref AWS::StackName
@@ -408,7 +413,10 @@ Resources:
         BranchName: main
         S3:
           Bucket: !Ref S3CodeBucket
-          Key: !Ref S3CodeKey
+          Key: !Join
+          - ''
+          - - !Ref S3CodeFolderPrefix
+            - 'mslesskendra.zip'
       RepositoryName: !Join
         - ''
         - - !Ref 'AWS::StackName'
@@ -451,7 +459,6 @@ Resources:
         - Name: REACT_APP_IDENTITY_POOL_ID
           Value: !Ref IdentityPool
         - Name: REACT_APP_INDEX_ID
-          #Value: !GetAtt MSLessKendraIndex.Id
           Value: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
         - Name: REACT_APP_PROJECT_REGION
           Value: !Ref 'AWS::Region'
@@ -480,19 +487,39 @@ Resources:
         - AppId
       EnableAutoBuild: true
       BranchName: main
+
+  BuildTriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt 'MSLessLambdaRole.Arn'
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref 'S3CodeBucket'
+        S3Key: !Join
+          - ''
+          - - !Ref 'S3CodeFolderPrefix'
+            - 'btrigger.zip'
+      Environment:
+        Variables:
+          APP_ID: !GetAtt AmplifyApp.AppId
       
+  BuildTrigger:
+    Type: Custom::CustomResource
+    DependsOn: 
+      - AmplifyApp
+    Properties:
+      ServiceToken: !GetAtt BuildTriggerLambda.Arn
+    
 Parameters:
   S3CodeBucket:
     Type: String
-  S3CodeKey:
+  S3CodeFolderPrefix:
     Type: String
   MediaBucket:
     Type: String
   MediaFolderPrefix:
-    Type: String
-  S3CrawlLambdaKey:
-    Type: String
-  S3JobCompletionLambdaKey:
     Type: String
   SyncSchedule:
     Type: String
@@ -514,46 +541,12 @@ Conditions:
     - ''
     
 Outputs:
-  UserPoolClientID: 
-    Value: !Ref UserPoolClient
-  UserPoolArn: 
-    Value: !GetAtt UserPool.Arn
-  UserPoolProviderURL:
-    Value: !GetAtt UserPool.ProviderURL
-  UserPoolSigningKeyObject:
-    Value:
-      !Join
-        - ''
-        - - !GetAtt UserPool.ProviderURL
-          - '/.well-known/jwks.json'
-  IdentityPoolId: 
-    Value: !Ref IdentityPool
-  CodeCommitRepository:
-    Value: !Ref Repository
-  Application:
-    Value: !Ref AmplifyApp
-  KendraMSLessIndexRoleArn: 
-    #Value: !GetAtt KendraIndexRole.Arn 
-    Value: !If [CreateIndex, !GetAtt KendraIndexRole.Arn, "No new role created as we are using Existing Index"]
   KendraIndexID:
-    #Value: !GetAtt MSLessKendraIndex.Id
     Value: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
   KendraDataSourceID:
     Value: !GetAtt KendraMSLessDS.Id
-  ReactAppCognitoRegion:
-    Value: !Ref 'AWS::Region'
-  ReactAppIdentityPoolId:
-    Value: !Ref IdentityPool
-  ReactAppIndexId:
-    #Value: !GetAtt MSLessKendraIndex.Id
-    Value: !If [CreateIndex, !GetAtt MSLessKendraIndex.Id, !Ref ExistingIndexId]
-  ReactAppProjectRegion:
-    Value: !Ref 'AWS::Region'
-  ReactAppRegion:
-    Value: !Ref 'AWS::Region'
-  ReactAppUserPoolId:
-    Value: !Ref UserPool
-  ReactAppWebClientId:
-    Value: !Ref UserPoolClient
-  ReactAppRoleArn:
-    Value: !GetAtt MSLessAppCredsRole.Arn
+  WebAppURL:
+    Value: !Join
+      - ''
+      - - 'https://main.'
+        - !GetAtt AmplifyApp.DefaultDomain

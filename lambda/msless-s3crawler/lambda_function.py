@@ -173,5 +173,6 @@ def lambda_handler(event, context):
                 logger.info("cfnresponse:" + "SUCCESS")
                 cfnresponse.send(event, context, status, {}, None)
         put_s3file(stack_name, '', '', '', 'STOPPED')            
+        #Call stop media sync to handle the case where no new jobs were created
         stop_media_sync_job_when_all_done()
         return status
