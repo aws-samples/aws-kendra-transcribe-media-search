@@ -15,13 +15,15 @@ app_id=os.environ['APP_ID']
 
 def lambda_handler(event, context):
     logger.info("Received event: %s" % json.dumps(event))
-    logger.info("Calling start_job for AppId: " + app_id)
-    response = bc.start_job(
-        appId=app_id,
-        branchName='main',
-        jobType='RELEASE'
-    )
-    logger.info("returned from start_job")
+    if ('RequestType' in event):
+        if (event['RequestType'] != 'Delete'):
+            logger.info("Calling start_job for AppId: " + app_id)
+            response = bc.start_job(
+                appId=app_id,
+                branchName='main',
+                jobType='RELEASE'
+            )
+            logger.info("returned from start_job")
     status = cfnresponse.SUCCESS
     cfnresponse.send(event, context, status, {}, None)
     return status
