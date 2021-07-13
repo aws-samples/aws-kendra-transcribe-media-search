@@ -111,8 +111,19 @@ def stop_media_sync_job_when_all_done():
     else:
         logger.info("Wait for all Transcribe jobs to complete")
 
+def delete_event_handler(event):
+    logger.info("At this time there is nothing to be done to handle the Delete event")
+    
 def lambda_handler(event, context):
     logger.info("Received event: %s" % json.dumps(event))
+    if (('RequestType' in event) and (event['RequestType'] == 'Delete')):
+        delete_event_handler(event)
+        logger.info("Return with success from a Delete event")
+        status = cfnresponse.SUCCESS
+        cfnresponse.send(event, context, status, {}, None)
+        return status
+        
+    #Now this is not a delete event
     r = get_s3file(stack_name)
     if (r['s3url'] != "NULL"):
         if (r['sync_state'] == "RUNNING"):
