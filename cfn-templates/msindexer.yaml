@@ -1,0 +1,277 @@
+Resources:
+  ##Create the Role needed to create a Kendra Index
+  KendraIndexRole:
+    Type: 'AWS::IAM::Role'
+    Condition: CreateIndex
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: kendra.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    'cloudwatch:namespace': 'Kendra'
+                Action:
+                  - 'cloudwatch:PutMetricData'
+              - Effect: Allow
+                Resource: '*'
+                Action: 'logs:DescribeLogGroups'
+              - Effect: Allow
+                Resource: !Sub
+                  - 'arn:aws:logs:${region}:${account}:log-group:/aws/kendra/*'
+                  - region: !Ref 'AWS::Region'
+                    account: !Ref 'AWS::AccountId'
+                Action: 'logs:CreateLogGroup'
+              - Effect: Allow
+                Resource: !Sub
+                  - 'arn:aws:logs:${region}:${account}:log-group:/aws/kendra/*:log-stream:*'
+                  - region: !Ref 'AWS::Region'
+                    account: !Ref 'AWS::AccountId'
+                Action: 
+                  - 'logs:DescribeLogStreams'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+          PolicyName: KendraMediaIndexPolicy
+      
+  ##Create the Kendra Index
+  MediaKendraIndex:
+    Type: 'AWS::Kendra::Index'
+    Condition: CreateIndex
+    Properties:
+      Edition: 'DEVELOPER_EDITION'
+      Name: !Join
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-Index'
+      RoleArn: !GetAtt KendraIndexRole.Arn
+
+  ##Attach Custom Data Source
+  KendraMediaDS:
+    Type: 'AWS::Kendra::DataSource'
+    Properties: 
+      IndexId: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+      Name: !Join
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-DS'
+      Type: 'CUSTOM'
+  
+  MediaDynamoTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      AttributeDefinitions: 
+        - 
+          AttributeName: "s3url"
+          AttributeType: "S"
+      KeySchema: 
+        - 
+          AttributeName: "s3url"
+          KeyType: "HASH"
+      ProvisionedThroughput: 
+            ReadCapacityUnits: "5"
+            WriteCapacityUnits: "5"
+            
+  MediaLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !Sub
+                  - 'arn:aws:kendra:${region}:${account}:index/${index}*'
+                  - region: !Ref 'AWS::Region'
+                    account: !Ref 'AWS::AccountId'
+                    index: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+                Action:
+                  - 'kendra:*'
+              - Effect: Allow
+                Resource: !Sub
+                  - 'arn:aws:s3:::${bucket}*'
+                  - bucket: !Ref MediaBucket
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+              - Effect: Allow
+                Resource: !GetAtt MediaDynamoTable.Arn
+                Action:
+                  - 'dynamodb:*'
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                  - 'transcribe:*'
+          PolicyName: MediaLambdaPolicy
+          
+  S3CrawlLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt 'MediaLambdaRole.Arn'
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref 'S3CodeBucket'
+        S3Key: !Join
+          - ''
+          - - !Ref 'S3CodeFolderPrefix'
+            - 's3crawler.zip'
+      Environment:
+        Variables:
+          MEDIA_BUCKET: !Ref MediaBucket
+          MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
+          MEDIA_FILE_TABLE: !Ref MediaDynamoTable
+          INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+          DS_ID: !GetAtt KendraMediaDS.Id
+          STACK_NAME: !Ref AWS::StackName
+  
+  S3JobCompletionLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt 'MediaLambdaRole.Arn'
+      Timeout: 300
+      Code:
+        S3Bucket: !Ref 'S3CodeBucket'
+        S3Key: !Join
+          - ''
+          - - !Ref 'S3CodeFolderPrefix'
+            - 'jobcomplete.zip'
+      Environment:
+        Variables:
+          MEDIA_BUCKET: !Ref MediaBucket
+          MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
+          MEDIA_FILE_TABLE: !Ref MediaDynamoTable
+          INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+          DS_ID: !GetAtt KendraMediaDS.Id
+          STACK_NAME: !Ref AWS::StackName
+  
+  TrancriptionJobCompleteEvent:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source: 
+          - aws.transcribe
+        detail-type:
+          - "Transcribe Job State Change"
+        detail:
+          TranscriptionJobStatus:
+            - "COMPLETED"
+            - "FAILED"
+      State: ENABLED
+      Targets:
+        - 
+          Arn: !GetAtt S3JobCompletionLambdaFunction.Arn
+          Id: !Ref S3JobCompletionLambdaFunction
+          
+  JobCompleteLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt S3JobCompletionLambdaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt TrancriptionJobCompleteEvent.Arn
+
+  DSSyncStartSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      ScheduleExpression: !Join
+        - ''
+        - - 'rate('
+          - !Ref SyncSchedule
+          - ')'
+      State: ENABLED
+      Targets:
+        - 
+          Arn: !GetAtt S3CrawlLambdaFunction.Arn
+          Id: !Ref S3CrawlLambdaFunction
+          
+  SyncScheduleLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt S3CrawlLambdaFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DSSyncStartSchedule.Arn
+
+  CustomResource:
+    Type: Custom::CustomResource
+    DependsOn: 
+      - S3CrawlLambdaFunction
+      - S3JobCompletionLambdaFunction
+      - TrancriptionJobCompleteEvent
+    Properties:
+      ServiceToken: !GetAtt S3CrawlLambdaFunction.Arn
+    
+Parameters:
+  S3CodeBucket:
+    Type: String
+  S3CodeFolderPrefix:
+    Type: String
+  MediaBucket:
+    Type: String
+  MediaFolderPrefix:
+    Type: String
+  SyncSchedule:
+    Type: String
+    Default: '24 hours'
+    AllowedValues:
+      - '2 hours'
+      - '6 hours'
+      - '12 hours'
+      - '24 hours'
+      - '48 hours'
+      - '72 hours'
+    Description: 'Please provide how frequently you want to synchronize the S3 bucket with the Kendra index - 6 hours, 12 hours, 24 hours. The default is 24 hours'
+  ExistingIndexId:
+    Default: ''
+    Type: String
+    Description: "Leave this empty to create a new index or provide the index id of the existing Kendra index to be used"
+    
+Conditions:
+  CreateIndex: !Equals 
+    - !Ref ExistingIndexId
+    - ''
+    
+Outputs:
+  KendraIndexID:
+    Value: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+    Export:
+      Name: !Join
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-KendraIndexID'
+  KendraDataSourceID:
+    Value: !GetAtt KendraMediaDS.Id
+    Export:
+      Name: !Join
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-KendraDSID'
+  MediaBucketUsed:
+    Value: !Ref MediaBucket
+    Export:
+      Name: !Join
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-MediaBucket'
