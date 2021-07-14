@@ -254,24 +254,9 @@ Conditions:
     - ''
     
 Outputs:
-  KendraIndexID:
+  KendraIndexId:
     Value: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
-    Export:
-      Name: !Join
-        - ''
-        - - !Ref 'AWS::StackName'
-          - '-KendraIndexID'
-  KendraDataSourceID:
+  KendraDataSourceId:
     Value: !GetAtt KendraMediaDS.Id
-    Export:
-      Name: !Join
-        - ''
-        - - !Ref 'AWS::StackName'
-          - '-KendraDSID'
   MediaBucketUsed:
     Value: !Ref MediaBucket
-    Export:
-      Name: !Join
-        - ''
-        - - !Ref 'AWS::StackName'
-          - '-MediaBucket'

@@ -163,8 +163,7 @@ Resources:
                   - 'arn:aws:kendra:${region}:${account}:index/${index}'
                   - region: !Ref 'AWS::Region'
                     account: !Ref 'AWS::AccountId'
-                    index: !ImportValue 
-                      'Fn::Sub': '${IndexerStackName}-KendraIndexID'
+                    index: !Ref KendraIndexId
                 Action:
                   - 'kendra:DescribeIndex'
                   - 'kendra:SubmitFeedback'
@@ -173,8 +172,7 @@ Resources:
               - Effect: Allow
                 Resource: !Sub
                   - 'arn:aws:s3:::${bucket}*'
-                  - bucket: !ImportValue
-                      'Fn::Sub': '${IndexerStackName}-MediaBucket'
+                  - bucket: !Ref MediaBucket
                 Action:
                   - 's3:GetObject'                
           PolicyName: AWSMediaAppCredsPolicy
@@ -233,8 +231,7 @@ Resources:
         - Name: REACT_APP_IDENTITY_POOL_ID
           Value: !Ref IdentityPool
         - Name: REACT_APP_INDEX_ID
-          Value: !ImportValue 
-            'Fn::Sub': '${IndexerStackName}-KendraIndexID'
+          Value: !Ref KendraIndexId 
         - Name: REACT_APP_PROJECT_REGION
           Value: !Ref 'AWS::Region'
         - Name: REACT_APP_REGION
@@ -315,7 +312,9 @@ Parameters:
     Type: String
   S3CodeFolderPrefix:
     Type: String
-  IndexerStackName:
+  KendraIndexId:
+    Type: String
+  MediaBucket:
     Type: String
     
 Outputs:
