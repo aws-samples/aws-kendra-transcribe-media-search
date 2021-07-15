@@ -170,9 +170,7 @@ Resources:
                   - 'kendra:ListDataSources'
                   - 'kendra:Query'
               - Effect: Allow
-                Resource: !Sub
-                  - 'arn:aws:s3:::${bucket}*'
-                  - bucket: !Ref MediaBucket
+                Resource: !Ref MediaBucketARNs
                 Action:
                   - 's3:GetObject'                
           PolicyName: AWSMediaAppCredsPolicy
@@ -300,12 +298,17 @@ Resources:
           APP_ID: !GetAtt AmplifyApp.AppId
       
   BuildTrigger:
-    Type: Custom::CustomResource
+    Type: Custom::BuildTrigger
     DependsOn: 
       - AmplifyApp
       - AmplifyBranch
+      - MediaAppCredsRole
     Properties:
       ServiceToken: !GetAtt BuildTriggerLambda.Arn
+      Param1: !Ref S3CodeBucket
+      Param2: !Ref S3CodeFolderPrefix
+      Param3: !Ref KendraIndexId
+      Param4: !Ref MediaBucketARNs
     
 Parameters:
   S3CodeBucket:
@@ -314,11 +317,11 @@ Parameters:
     Type: String
   KendraIndexId:
     Type: String
-  MediaBucket:
-    Type: String
+  MediaBucketARNs:
+    Type: CommaDelimitedList
     
 Outputs:
-  WebAppURL:
+  MediaSearchFinderURL:
     Value: !Join
       - ''
       - - 'https://main.'
