@@ -170,7 +170,13 @@ Resources:
                   - 'kendra:ListDataSources'
                   - 'kendra:Query'
               - Effect: Allow
-                Resource: !Ref MediaBucketARNs
+                Resource: !Split
+                  - ','
+                  - !Sub
+                    - 'arn:aws:s3:::${inner}/*'
+                    - inner: !Join
+                      - '/*,arn:aws:s3:::'
+                      - !Ref MediaBucketNames
                 Action:
                   - 's3:GetObject'                
           PolicyName: AWSMediaAppCredsPolicy
@@ -308,7 +314,7 @@ Resources:
       Param1: !Ref S3CodeBucket
       Param2: !Ref S3CodeFolderPrefix
       Param3: !Ref KendraIndexId
-      Param4: !Ref MediaBucketARNs
+      Param4: !Ref MediaBucketNames
     
 Parameters:
   S3CodeBucket:
@@ -317,8 +323,11 @@ Parameters:
     Type: String
   KendraIndexId:
     Type: String
-  MediaBucketARNs:
+  MediaBucketNames:
     Type: CommaDelimitedList
+    Default: "<REPLACE-WITH-SAMPLEBUCKET>"
+    Description: >-
+      (Required) A comma-delimited list of media bucket names - may include wildcards. Needed to support presigned URLs used to access media files contained in search results.
     
 Outputs:
   MediaSearchFinderURL:
