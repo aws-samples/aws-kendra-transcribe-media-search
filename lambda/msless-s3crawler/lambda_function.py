@@ -166,7 +166,9 @@ def lambda_handler(event, context):
             return status
         for r in response['Contents']:
             #At this time we deal with only mp3 and mp4 files
-            if (r['Key'].endswith('.mp3') or r['Key'].endswith('.mp4')):
+            suffix = r['Key'].rsplit(".",1)[-1]
+            supported_media_types = ["mp3","mp4","wav"]
+            if (suffix in supported_media_types):
                 s3url = "s3://" + bucket_name + '/' + r['Key']
                 lastModified = r['LastModified'].strftime("%m:%d:%Y:%H:%M:%S")
                 item = get_s3file(s3url)

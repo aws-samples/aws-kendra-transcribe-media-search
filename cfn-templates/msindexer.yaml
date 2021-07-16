@@ -112,6 +112,7 @@ Resources:
                 Action:
                   - 's3:GetObject'
                   - 's3:ListBucket'
+                  - 's3:GetBucketLocation'
               - Effect: Allow
                 Resource: !GetAtt MediaDynamoTable.Arn
                 Action:
