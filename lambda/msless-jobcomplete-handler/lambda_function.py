@@ -141,6 +141,11 @@ def get_media_transcription(job_name):
         response = e
     return response
 
+def get_file_name(s3url):
+    url_split = s3url.split('/')
+    url_len = len(url_split)
+    return url_split[url_len-1]
+    
 def lambda_handler(event, context):
     logger.info("Got:" + json.dumps(event))
     r = get_media_transcription(event['detail']['TranscriptionJobName'])
@@ -149,8 +154,8 @@ def lambda_handler(event, context):
         logger.info("File URI:" + file_uri)
         text = transcript_processor(file_uri)
         logger.info("Text: " + text)
-        job_name = event['detail']['TranscriptionJobName']
-        file_name = job_name.replace(stack_name + '-','')
+        media_file_uri = r['TranscriptionJob']['Media']['MediaFileUri']
+        file_name = get_file_name(media_file_uri)
         put_document(file_name, text)
         stop_media_sync_job_when_all_done()
     else:
