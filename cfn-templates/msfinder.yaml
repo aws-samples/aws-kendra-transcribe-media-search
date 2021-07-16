@@ -1,3 +1,7 @@
+Description: >
+  This CloudFormation template builds the Finder stack of Media Search solution.
+  MediaSearch Solution - Finder (v0.1.0)
+  
 Resources:
   ##Create Cognito Userpool for Authentication
   UserPool:

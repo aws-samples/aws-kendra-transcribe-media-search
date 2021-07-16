@@ -1,3 +1,7 @@
+Description: >
+  This CloudFormation template builds the Indexer stack of Media Search solution.
+  MediaSearch Solution - Indexer (v0.1.0)
+  
 Resources:
   ##Create the Role needed to create a Kendra Index
   KendraIndexRole:
@@ -256,7 +260,5 @@ Conditions:
 Outputs:
   KendraIndexId:
     Value: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
-  KendraDataSourceId:
-    Value: !GetAtt KendraMediaDS.Id
   MediaBucketUsed:
     Value: !Ref MediaBucket
