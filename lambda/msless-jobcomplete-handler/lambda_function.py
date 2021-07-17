@@ -77,11 +77,15 @@ def put_document(s3url, file_text):
     logger.info("put_document fobject:" + json.dumps(fobject))
     bucket, key, file_name = parse_s3url(s3url)
     # get bucket location.. buckets in us-east-1 return None, all other regions are returned in LocationConstraint
-    region = s3.get_bucket_location(Bucket=bucket)["LocationConstraint"] or 'us-east-1' 
+    try:
+        region = s3.get_bucket_location(Bucket=bucket)["LocationConstraint"] or 'us-east-1' 
+    except:
+        logger.info("Unable to retrieve bucket region.. defaulting to us-east-1")
+        region = 'us-east-1'
     if (fobject['s3url'] != "NULL"):
         documents = [ 
             {
-                "Id": file_name,
+                "Id": s3url,
                 "Title": file_name,
                 "Blob": file_text,
                 "Attributes": [
