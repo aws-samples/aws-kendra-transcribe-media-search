@@ -253,21 +253,33 @@ export default class Search extends React.Component<SearchProps, SearchState> {
             offset = answerText!.substring(mm+1,nn);
           }
           try {
-            let res = result.DocumentURI.split("/");
-            if (res[2].startsWith("s3")) {
+            var bucket = "";
+            var key = "";
+            if (result.DocumentURI.search(/\/s3[.-](\w{2}-\w{4,9}-\d\.)?amazonaws\.com/) != -1) {
+              //bucket in path format
+              bucket = result.DocumentURI.split('/')[3];
+              key = result.DocumentURI.split('/').slice(4).join('/');
+            }
+            if (result.DocumentURI.search(/\.s3[.-](\w{2}-\w{4,9}-\d\.)?amazonaws\.com/) != -1) {
+              //bucket in hostname format
+              let hostname = result.DocumentURI.split("/")[2];
+              bucket = hostname.split(".")[0];
+              key = result.DocumentURI.split('/').slice(3).join('/');
+            }
+            if (bucket && key) {
               //The URI points to an object in an S3 bucket
               //Get presigned url from s3
-              let bucket = res[3];
-              let key = res[4];
-              for (var i = 5; i < res.length; i++) {
-                key = key + "/" + res[i];
-              }
+              console.log("Attempt to convert S3 url to a signed URL: ", result.DocumentURI);
+              console.log("Bucket: ", bucket, " Key: ", key) ;
               let params = { Bucket: bucket, Key: key };
               let url = this.props.s3!.getSignedUrl("getObject", params);
               result.DocumentURI = url;
+            } else {
+              console.log("URL is not an S3 url - return unchanged: ", result.DocumentURI);
             }
           } catch {
             // Just do nothing, so the documentURI are still as before
+            console.log("Error signing S3 URL (returning original URL): ", result.DocumentURI) ;
           }
           if (result.DocumentURI && excerpt_page_no) {
             result.DocumentURI = result.DocumentURI + "#page=" + excerpt_page_no;
