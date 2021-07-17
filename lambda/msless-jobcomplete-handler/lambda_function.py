@@ -100,7 +100,7 @@ def put_document(s3url, file_text):
                     {
                         "Key": "_source_uri",
                         "Value": {
-                            "StringValue": "https://s3." + region + ".amazonaws.com/" + bucket + '/' + key
+                            "StringValue": "https://s3." + region + ".amazonaws.com/" + bucket + key
                         }
                     }
                 ]
