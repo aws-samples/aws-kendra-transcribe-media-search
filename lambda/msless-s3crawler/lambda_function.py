@@ -1,6 +1,7 @@
 import os
 import json
 import sys
+import re
 
 import boto3
 from botocore.exceptions import ClientError
@@ -40,16 +41,22 @@ def get_file_name(s3url):
     url_split = s3url.split('/')
     url_len = len(url_split)
     return url_split[url_len-1]
+    
+# generate a unique job name for transcribe satisfying the naming regex requirements 
+def transcribe_job_name(*args):
+    job_name = "__".join(args)
+    job_name = re.sub(r"[^0-9a-zA-Z._-]+","--",job_name)
+    return job_name
 
 def delete_media_transcription(job_uri):
-    job_name = stack_name + '-' + get_file_name(job_uri)
+    job_name = transcribe_job_name(stack_name, job_uri)
     try:
         transcribe.delete_transcription_job(TranscriptionJobName=job_name)
     except ClientError as e:
         logger.info("Exception while deleting: " + job_name + "Error:" + e.response['Error']['Message'])
 
 def start_media_transcription(job_uri):
-    job_name = stack_name + '-' + get_file_name(job_uri)
+    job_name = transcribe_job_name(stack_name, job_uri)
     logger.info("Starting media transcription job:" + job_name)
     try:
         response = transcribe.start_transcription_job(
@@ -159,7 +166,9 @@ def lambda_handler(event, context):
             return status
         for r in response['Contents']:
             #At this time we deal with only mp3 and mp4 files
-            if (r['Key'].endswith('.mp3') or r['Key'].endswith('.mp4')):
+            suffix = r['Key'].rsplit(".",1)[-1]
+            supported_media_types = ["mp3","mp4","wav"]
+            if (suffix in supported_media_types):
                 s3url = "s3://" + bucket_name + '/' + r['Key']
                 lastModified = r['LastModified'].strftime("%m:%d:%Y:%H:%M:%S")
                 item = get_s3file(s3url)

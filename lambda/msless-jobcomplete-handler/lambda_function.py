@@ -13,9 +13,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 s3 = boto3.client('s3')
-bucket_name = os.environ['MEDIA_BUCKET']
-folder_prefix = os.environ['MEDIA_FOLDER_PREFIX']
-
 
 s3crawl_table = os.environ['MEDIA_FILE_TABLE']
 dynamodb = boto3.resource('dynamodb')
@@ -66,16 +63,29 @@ def stop_media_sync_job_when_all_done():
     else:
         logger.info("Wait for all Transcribe jobs to complete")
 
-def put_document(file_name, file_text):
-    logger.info("put_document:" + file_name)
+def parse_s3url(s3url):
+    r = urllib.parse.urlparse(s3url, allow_fragments=False)
+    bucket = r.netloc
+    key = r.path
+    file_name = key.split("/")[-1]
+    return [bucket, key, file_name]
+
+def put_document(s3url, file_text):
+    logger.info("put_document:" + s3url)
     logger.info("put_document file_text:" + file_text)
-    s3url = "s3://" + bucket_name + '/' + folder_prefix + file_name
     fobject = get_s3file(s3url)
     logger.info("put_document fobject:" + json.dumps(fobject))
+    bucket, key, file_name = parse_s3url(s3url)
+    # get bucket location.. buckets in us-east-1 return None, all other regions are returned in LocationConstraint
+    try:
+        region = s3.get_bucket_location(Bucket=bucket)["LocationConstraint"] or 'us-east-1' 
+    except:
+        logger.info("Unable to retrieve bucket region.. defaulting to us-east-1")
+        region = 'us-east-1'
     if (fobject['s3url'] != "NULL"):
         documents = [ 
             {
-                "Id": file_name,
+                "Id": s3url,
                 "Title": file_name,
                 "Blob": file_text,
                 "Attributes": [
@@ -94,7 +104,7 @@ def put_document(file_name, file_text):
                     {
                         "Key": "_source_uri",
                         "Value": {
-                            "StringValue": "https://s3.us-east-1.amazonaws.com/" + bucket_name + '/' + folder_prefix + file_name
+                            "StringValue": "https://s3." + region + ".amazonaws.com/" + bucket + key
                         }
                     }
                 ]
@@ -141,6 +151,7 @@ def get_media_transcription(job_name):
         response = e
     return response
 
+
 def lambda_handler(event, context):
     logger.info("Got:" + json.dumps(event))
     r = get_media_transcription(event['detail']['TranscriptionJobName'])
@@ -149,9 +160,8 @@ def lambda_handler(event, context):
         logger.info("File URI:" + file_uri)
         text = transcript_processor(file_uri)
         logger.info("Text: " + text)
-        job_name = event['detail']['TranscriptionJobName']
-        file_name = job_name.replace(stack_name + '-','')
-        put_document(file_name, text)
+        media_file_uri = r['TranscriptionJob']['Media']['MediaFileUri']
+        put_document(media_file_uri, text)
         stop_media_sync_job_when_all_done()
     else:
         logger.info("Did not get file uri")
