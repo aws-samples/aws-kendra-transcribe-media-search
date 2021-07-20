@@ -1,7 +1,6 @@
 Description: >
-  This CloudFormation template builds the Indexer stack of Media Search solution.
-  MediaSearch Solution - Indexer (v0.1.0)
-  
+  MediaSearch Solution - Indexer stack (v0.1.0)
+
 Resources:
   ##Create the Role needed to create a Kendra Index
   KendraIndexRole:
@@ -75,16 +74,39 @@ Resources:
     Properties:
       AttributeDefinitions: 
         - 
-          AttributeName: "s3url"
+          AttributeName: "id"
           AttributeType: "S"
       KeySchema: 
         - 
-          AttributeName: "s3url"
+          AttributeName: "id"
           KeyType: "HASH"
       ProvisionedThroughput: 
             ReadCapacityUnits: "5"
             WriteCapacityUnits: "5"
             
+  TranscribeDataAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: transcribe.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                Resource: !Sub
+                  - 'arn:aws:s3:::${bucket}*'
+                  - bucket: !Ref MediaBucket
+          PolicyName: TranscribeDataAccessPolicy
+  
   MediaLambdaRole:
     Type: AWS::IAM::Role
     Properties:
@@ -125,21 +147,25 @@ Resources:
                 Resource: '*'
                 Action:
                   - 'transcribe:*'
+              - Effect: Allow
+                Resource: !GetAtt 'TranscribeDataAccessRole.Arn'
+                Action:
+                  - 'iam:PassRole'
           PolicyName: MediaLambdaPolicy
           
   S3CrawlLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Handler: lambda_function.lambda_handler
+      Handler: crawler.lambda_handler
       Runtime: python3.8
       Role: !GetAtt 'MediaLambdaRole.Arn'
       Timeout: 300
       Code:
-        S3Bucket: !Ref 'S3CodeBucket'
+        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
         S3Key: !Join
           - ''
-          - - !Ref 'S3CodeFolderPrefix'
-            - 's3crawler.zip'
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<INDEXER_ZIPFILE>'
       Environment:
         Variables:
           MEDIA_BUCKET: !Ref MediaBucket
@@ -148,20 +174,21 @@ Resources:
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMediaDS.Id
           STACK_NAME: !Ref AWS::StackName
+          TRANSCRIBE_ROLE: !GetAtt 'TranscribeDataAccessRole.Arn'
   
   S3JobCompletionLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Handler: lambda_function.lambda_handler
+      Handler: jobcomplete.lambda_handler
       Runtime: python3.8
       Role: !GetAtt 'MediaLambdaRole.Arn'
       Timeout: 300
       Code:
-        S3Bucket: !Ref 'S3CodeBucket'
+        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
         S3Key: !Join
           - ''
-          - - !Ref 'S3CodeFolderPrefix'
-            - 'jobcomplete.zip'
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<INDEXER_ZIPFILE>'
       Environment:
         Variables:
           MEDIA_BUCKET: !Ref MediaBucket
@@ -170,6 +197,7 @@ Resources:
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMediaDS.Id
           STACK_NAME: !Ref AWS::StackName
+          TRANSCRIBE_ROLE: !GetAtt 'TranscribeDataAccessRole.Arn'
   
   TrancriptionJobCompleteEvent:
     Type: AWS::Events::Rule
@@ -227,16 +255,18 @@ Resources:
       - TrancriptionJobCompleteEvent
     Properties:
       ServiceToken: !GetAtt S3CrawlLambdaFunction.Arn
+      TriggerDependencies:
+        - !Ref MediaBucket
+        - !Ref MediaFolderPrefix
+        - '<INDEXER_ZIPFILE>'
     
 Parameters:
-  S3CodeBucket:
-    Type: String
-  S3CodeFolderPrefix:
-    Type: String
   MediaBucket:
     Type: String
+    Default: '<SAMPLES_BUCKET>'
   MediaFolderPrefix:
     Type: String
+    Default: '<SAMPLES_PREFIX>'
   SyncSchedule:
     Type: String
     Default: '24 hours'
@@ -247,11 +277,11 @@ Parameters:
       - '24 hours'
       - '48 hours'
       - '72 hours'
-    Description: 'Please provide how frequently you want to synchronize the S3 bucket with the Kendra index - 6 hours, 12 hours, 24 hours. The default is 24 hours'
+    Description: 'Select frequency to synchronize the S3 bucket with the Kendra index - 6 hours, 12 hours, 24 hours. The default is 24 hours'
   ExistingIndexId:
     Default: ''
     Type: String
-    Description: "Leave this empty to create a new index or provide the index id of the existing Kendra index to be used"
+    Description: "Leave this empty to create a new index or provide the index *id* (not name) of the existing Kendra index to be used"
     
 Conditions:
   CreateIndex: !Equals 

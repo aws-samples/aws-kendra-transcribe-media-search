@@ -1,6 +1,5 @@
 Description: >
-  This CloudFormation template builds the Finder stack of Media Search solution.
-  MediaSearch Solution - Finder (v0.1.0)
+  MediaSearch Solution - Finder stack (v0.1.0)
   
 Resources:
   ##Create Cognito Userpool for Authentication
@@ -192,11 +191,11 @@ Resources:
       Code:
         BranchName: main
         S3:
-          Bucket: !Ref S3CodeBucket
+          Bucket: '<ARTIFACT_BUCKET_TOKEN>'
           Key: !Join
           - ''
-          - - !Ref S3CodeFolderPrefix
-            - 'mslesskendra.zip'
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<FINDER_ZIPFILE>'
       RepositoryName: !Join
         - ''
         - - !Ref 'AWS::StackName'
@@ -298,11 +297,11 @@ Resources:
       Role: !GetAtt 'MediaLambdaRole.Arn'
       Timeout: 300
       Code:
-        S3Bucket: !Ref 'S3CodeBucket'
+        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
         S3Key: !Join
           - ''
-          - - !Ref 'S3CodeFolderPrefix'
-            - 'btrigger.zip'
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<BUILDTRIGGER_ZIPFILE>'
       Environment:
         Variables:
           APP_ID: !GetAtt AmplifyApp.AppId
@@ -315,21 +314,17 @@ Resources:
       - MediaAppCredsRole
     Properties:
       ServiceToken: !GetAtt BuildTriggerLambda.Arn
-      Param1: !Ref S3CodeBucket
-      Param2: !Ref S3CodeFolderPrefix
+      Param1: '<ARTIFACT_BUCKET_TOKEN>'
+      Param2: '<ARTIFACT_PREFIX_TOKEN>'
       Param3: !Ref KendraIndexId
       Param4: !Ref MediaBucketNames
     
 Parameters:
-  S3CodeBucket:
-    Type: String
-  S3CodeFolderPrefix:
-    Type: String
   KendraIndexId:
     Type: String
   MediaBucketNames:
     Type: CommaDelimitedList
-    Default: "<REPLACE-WITH-SAMPLEBUCKET>"
+    Default: "<SAMPLES_BUCKET>"
     Description: >-
       (Required) A comma-delimited list of media bucket names - may include wildcards. Needed to support presigned URLs used to access media files contained in search results.
     
