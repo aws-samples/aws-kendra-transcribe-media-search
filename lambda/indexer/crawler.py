@@ -47,6 +47,7 @@ def process_s3_media_object(crawlername, bucketname, s3object, kendra_sync_job_i
     s3url = "s3://" + bucketname + '/' + s3object['Key']
     logger.info(f"process_s3_media_object() - Key: {s3url}")
     lastModified = s3object['LastModified'].strftime("%m:%d:%Y:%H:%M:%S")
+    size_bytes = s3object['Size']
     item = get_file_status(s3url)
     job_name=None
     if (item == None):
@@ -54,8 +55,8 @@ def process_s3_media_object(crawlername, bucketname, s3object, kendra_sync_job_i
         job_name = start_media_transcription(crawlername, s3url, role)
         if job_name:
             put_file_status(
-                s3url, lastModified, status="New", 
-                transcribe_job_id=job_name, transcribe_state="RUNNING", 
+                s3url, lastModified, size_bytes, status="New", 
+                transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None, 
                 sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
                 )
     elif (lastModified != item['lastModified']):
@@ -63,16 +64,16 @@ def process_s3_media_object(crawlername, bucketname, s3object, kendra_sync_job_i
         job_name = restart_media_transcription(crawlername, s3url, role)
         if job_name:
             put_file_status(
-                s3url, lastModified, status="Modified", 
-                transcribe_job_id=job_name, transcribe_state="RUNNING", 
+                s3url, lastModified, size_bytes, status="Modified", 
+                transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None,
                 sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
                 )
     else:
         logger.info("Unchanged:" + s3url)
         put_file_status(
-            s3url, lastModified, status="Unchanged", 
-            transcribe_job_id="NONE", transcribe_state="DONE", 
-            sync_job_id="NONE", sync_state="DONE"
+            s3url, lastModified, size_bytes, status="Unchanged", 
+            transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=item['transcribe_secs'],
+            sync_job_id=item['sync_job_id'], sync_state="DONE"
             )
     return True
 

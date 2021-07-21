@@ -75,7 +75,7 @@ def get_statusTableItem(id):
         return None
     if ('Item' in response):
         item = response['Item']
-    logger.info("response item: " + json.dumps(item))
+    logger.info("response item: " + json.dumps(item, default=str))
     return item
 
 
@@ -83,19 +83,21 @@ def put_crawler_state(name, status):
     logger.info(f"put_crawler_status({name}, status={status})")
     return put_statusTableItem(s3url=name, crawler_state=status)
     
-def put_file_status(s3url, lastModified, status, transcribe_job_id, transcribe_state, sync_job_id, sync_state):
-    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, status={status}, transcribe_job_id={transcribe_job_id}, transcribe_state={transcribe_state}, sync_job_id={sync_job_id}, sync_state={sync_state})")
-    return put_statusTableItem(s3url, lastModified, status, transcribe_job_id, transcribe_state, sync_job_id, sync_state)
+def put_file_status(s3url, lastModified, size_bytes, status, transcribe_job_id, transcribe_state, transcribe_secs, sync_job_id, sync_state):
+    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, size_bytes={size_bytes}, status={status}, transcribe_job_id={transcribe_job_id}, transcribe_state={transcribe_state}, transcribe_secs={transcribe_secs}, sync_job_id={sync_job_id}, sync_state={sync_state})")
+    return put_statusTableItem(s3url, lastModified, size_bytes, status, transcribe_job_id, transcribe_state, transcribe_secs, sync_job_id, sync_state)
 
 # Currently use same DynamoDB table to track status of indexer (id=stackname) as well as each S3 media file (id=s3url)
-def put_statusTableItem(s3url, lastModified='', status='', transcribe_job_id='', transcribe_state='', sync_job_id='', sync_state='', crawler_state=''):
+def put_statusTableItem(s3url, lastModified='', size_bytes=None, status='', transcribe_job_id='', transcribe_state='', transcribe_secs=None, sync_job_id='', sync_state='', crawler_state=''):
     response = TABLE.put_item(
        Item={
             'id': s3url,
             'lastModified': lastModified,
+            'size_bytes': size_bytes,
             'status': status,
             'transcribe_job_id': transcribe_job_id,
             'transcribe_state': transcribe_state,
+            'transcribe_secs': transcribe_secs,
             'sync_job_id': sync_job_id,
             'sync_state': sync_state,
             'crawler_state': crawler_state

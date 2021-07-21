@@ -98,6 +98,11 @@ def get_transcription_job(job_name):
     logger.info("get_transcription_job response: " + json.dumps(response, default=str))
     return response
 
+def get_transcription_job_duration(transcription_job):
+    start_time = transcription_job['TranscriptionJob']['StartTime']
+    completion_time = transcription_job['TranscriptionJob']['CompletionTime']
+    delta = completion_time - start_time
+    return delta.seconds
 
 # jobcompete handler - this lambda processes and indexes a single media file transcription
 # invoked by EventBridge trigger as the Amazon Transcribe job for each media file (started by the crawler lambda) completes
@@ -124,17 +129,18 @@ def lambda_handler(event, context):
             failure_reason = transcription_job['TranscriptionJob']['FailureReason']
             logger.error(f"Transcribe job failed: {job_status} - Reason {failure_reason}")
             put_file_status(
-                media_s3url, lastModified=item['lastModified'], status=item['status'], 
-                transcribe_job_id=item['transcribe_job_id'], transcribe_state="FAILED", 
+                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                transcribe_job_id=item['transcribe_job_id'], transcribe_state="FAILED", transcribe_secs=None,
                 sync_job_id=item['sync_job_id'], sync_state="NOT_SYNCED"
                 )            
         else:
             # job completed
             transcript_uri = transcription_job['TranscriptionJob']['Transcript']['TranscriptFileUri']
+            transcribe_secs = get_transcription_job_duration(transcription_job)
             # Update transcribe_state
             put_file_status(
-                media_s3url, lastModified=item['lastModified'], status=item['status'], 
-                transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", 
+                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                 sync_job_id=item['sync_job_id'], sync_state=item['sync_state']
                 )
             try:
@@ -142,15 +148,15 @@ def lambda_handler(event, context):
                 put_document(dsId=DS_ID, indexId=INDEX_ID, s3url=media_s3url, text=text)
                 # Update sync_state
                 put_file_status(
-                    media_s3url, lastModified=item['lastModified'], status=item['status'], 
-                    transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", 
+                    media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                    transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                     sync_job_id=item['sync_job_id'], sync_state="DONE"
                     )
             except Exception as e:
                 logger.error("Exception thrown during indexing: " + str(e))
                 put_file_status(
-                    media_s3url, lastModified=item['lastModified'], status=item['status'], 
-                    transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", 
+                    media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                    transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs, 
                     sync_job_id=item['sync_job_id'], sync_state="FAILED"
                     )
     # Finally, in all cases stop sync job if not more transcription jobs are pending.
@@ -159,5 +165,4 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
-    lambda_handler({"detail":{"TranscriptionJobName":"MS-Indexer-4__s3--aj-misc-bucket-01--MSLESS-STAGING--Media--Why_is_CloudFront_returning_HTTP_response_code_403_Access_Denied_from_Amazon_S3_.mp4_1626869273.307556"}},{})
     lambda_handler({"detail":{"TranscriptionJobName":"testjob"}},{})
