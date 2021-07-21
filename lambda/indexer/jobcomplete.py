@@ -23,8 +23,7 @@ def put_document(dsId, indexId, s3url, text):
     try:
         region = S3.get_bucket_location(Bucket=bucket)["LocationConstraint"] or 'us-east-1' 
     except Exception as e:
-        logger.info(f"Unable to retrieve bucket region (bucket owned by another account?).. defaulting to us-east-1. Bucket: {bucket}")
-        logger.info(e)
+        logger.info(f"Unable to retrieve bucket region (bucket owned by another account?).. defaulting to us-east-1. Bucket: {bucket} - Message: " + str(e))
         region = 'us-east-1'
     file_status = get_file_status(s3url)
     if file_status:
@@ -42,7 +41,7 @@ def put_document(dsId, indexId, s3url, text):
                     {
                         "Key": "_data_source_sync_job_execution_id",
                         "Value": {
-                            "StringValue": file_status['execution_id']
+                            "StringValue": file_status['sync_job_id']
                         }
                     },
                     {
@@ -63,7 +62,6 @@ def put_document(dsId, indexId, s3url, text):
         if 'FailedDocuments' in result and len(result['FailedDocuments']) > 0:
             logger.error("Failed to index document: " + result['FailedDocuments'][0]['ErrorMessage'])
         logger.info("result: " + json.dumps(result))
-        put_file_status(s3url, file_status['lastModified'], file_status['status'], "NONE", "DONE")
     return True
 
 def prepare_transcript(transcript_uri):
@@ -89,15 +87,15 @@ def prepare_transcript(transcript_uri):
     out = textwrap.fill(txt, width=70)
     return out
 
-def get_media_transcription(job_name):
-    logger.info(f"get_media_transcription({job_name})")
+def get_transcription_job(job_name):
+    logger.info(f"get_transcription_job({job_name})")
     try:
         response = TRANSCRIBE.get_transcription_job(TranscriptionJobName=job_name)
     except Exception as e:
         logger.error("Exception getting transription job: " + job_name)
         logger.error(e)
         return None
-    #logger.info("response: " + json.dumps(response, default=str))
+    logger.info("get_transcription_job response: " + json.dumps(response, default=str))
     return response
 
 
@@ -105,15 +103,61 @@ def get_media_transcription(job_name):
 # invoked by EventBridge trigger as the Amazon Transcribe job for each media file (started by the crawler lambda) completes
 def lambda_handler(event, context):
     logger.info("Received event: %s" % json.dumps(event))
-    # get results of Amazon Transcribe job, identified in the payload of the JobCompletion event
-    response = get_media_transcription(event['detail']['TranscriptionJobName'])
-    if response and ('TranscriptionJob' in response):
-        file_uri = response['TranscriptionJob']['Transcript']['TranscriptFileUri']
-        text = prepare_transcript(file_uri)
-        media_file_uri = response['TranscriptionJob']['Media']['MediaFileUri']
-        put_document(dsId=DS_ID, indexId=INDEX_ID, s3url=media_file_uri, text=text)
-        stop_kendra_sync_job_when_all_done(dsId=DS_ID, indexId=INDEX_ID)
-    else:
-        logger.error("Unable to retrieve transcription from job.")
-        
     
+    job_name = event['detail']['TranscriptionJobName']
+    logger.info(f"Transcription job name: {job_name}")
+    
+    # get results of Amazon Transcribe job
+    transcription_job = get_transcription_job(job_name)
+    
+    if transcription_job == None or ('TranscriptionJob' not in transcription_job):
+        logger.error("Unable to retrieve transcription from job.")
+    else:
+        job_status = transcription_job['TranscriptionJob']['TranscriptionJobStatus']
+        media_s3url = transcription_job['TranscriptionJob']['Media']['MediaFileUri']
+        item = get_file_status(media_s3url)
+        if item == None:
+            logger.info("Transcription job for media file not tracked in Indexer Media File table.. possibly this is a job that is not started by MediaSearch indexer")
+            return
+        if job_status == "FAILED":
+            # job failed
+            failure_reason = transcription_job['TranscriptionJob']['FailureReason']
+            logger.error(f"Transcribe job failed: {job_status} - Reason {failure_reason}")
+            put_file_status(
+                media_s3url, lastModified=item['lastModified'], status=item['status'], 
+                transcribe_job_id=item['transcribe_job_id'], transcribe_state="FAILED", 
+                sync_job_id=item['sync_job_id'], sync_state="NOT_SYNCED"
+                )            
+        else:
+            # job completed
+            transcript_uri = transcription_job['TranscriptionJob']['Transcript']['TranscriptFileUri']
+            # Update transcribe_state
+            put_file_status(
+                media_s3url, lastModified=item['lastModified'], status=item['status'], 
+                transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", 
+                sync_job_id=item['sync_job_id'], sync_state=item['sync_state']
+                )
+            try:
+                text = prepare_transcript(transcript_uri)
+                put_document(dsId=DS_ID, indexId=INDEX_ID, s3url=media_s3url, text=text)
+                # Update sync_state
+                put_file_status(
+                    media_s3url, lastModified=item['lastModified'], status=item['status'], 
+                    transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", 
+                    sync_job_id=item['sync_job_id'], sync_state="DONE"
+                    )
+            except Exception as e:
+                logger.error("Exception thrown during indexing: " + str(e))
+                put_file_status(
+                    media_s3url, lastModified=item['lastModified'], status=item['status'], 
+                    transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", 
+                    sync_job_id=item['sync_job_id'], sync_state="FAILED"
+                    )
+    # Finally, in all cases stop sync job if not more transcription jobs are pending.
+    stop_kendra_sync_job_when_all_done(dsId=DS_ID, indexId=INDEX_ID)
+
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    lambda_handler({"detail":{"TranscriptionJobName":"MS-Indexer-4__s3--aj-misc-bucket-01--MSLESS-STAGING--Media--Why_is_CloudFront_returning_HTTP_response_code_403_Access_Denied_from_Amazon_S3_.mp4_1626869273.307556"}},{})
+    lambda_handler({"detail":{"TranscriptionJobName":"testjob"}},{})

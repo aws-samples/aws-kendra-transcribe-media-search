@@ -1,6 +1,7 @@
 import os
 import boto3
 import json
+import time
 from boto3.dynamodb.conditions import Key, Attr
 
 import logging
@@ -48,6 +49,7 @@ def stop_kendra_sync_job_when_all_done(dsId, indexId):
         #All DONE
         logger.info("No media files currently being transcribed. Stop Data Source Sync.")
         KENDRA.stop_data_source_sync_job(Id=dsId, IndexId=indexId)
+        time.sleep(10)  # wait a few seconds for sync job to stop
     else:
         logger.info(f"Wait for remaining Transcribe jobs to complete - count: {response['Count']}")
     return True
@@ -81,21 +83,27 @@ def put_crawler_state(name, status):
     logger.info(f"put_crawler_status({name}, status={status})")
     return put_statusTableItem(s3url=name, crawler_state=status)
     
-def put_file_status(s3url, lastModified, status, execution_id, sync_state):
-    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, status={status}, execution_id={execution_id}, sync_state={sync_state})")
-    return put_statusTableItem(s3url, lastModified, status, execution_id, sync_state)
+def put_file_status(s3url, lastModified, status, transcribe_job_id, transcribe_state, sync_job_id, sync_state):
+    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, status={status}, transcribe_job_id={transcribe_job_id}, transcribe_state={transcribe_state}, sync_job_id={sync_job_id}, sync_state={sync_state})")
+    return put_statusTableItem(s3url, lastModified, status, transcribe_job_id, transcribe_state, sync_job_id, sync_state)
 
 # Currently use same DynamoDB table to track status of indexer (id=stackname) as well as each S3 media file (id=s3url)
-def put_statusTableItem(s3url, lastModified='', status='', execution_id='', sync_state='', crawler_state=''):
+def put_statusTableItem(s3url, lastModified='', status='', transcribe_job_id='', transcribe_state='', sync_job_id='', sync_state='', crawler_state=''):
     response = TABLE.put_item(
        Item={
             'id': s3url,
             'lastModified': lastModified,
             'status': status,
-            'execution_id': execution_id,
+            'transcribe_job_id': transcribe_job_id,
+            'transcribe_state': transcribe_state,
+            'sync_job_id': sync_job_id,
             'sync_state': sync_state,
             'crawler_state': crawler_state
         }
     )
     return response
 
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    lambda_handler({},{})

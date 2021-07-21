@@ -37,7 +37,7 @@ def start_media_transcription(name, job_uri, role):
         logger.error("Exception while starting: " + job_name)
         logger.error(e)
         return False
-    return True
+    return job_name
 
 def restart_media_transcription(name, job_uri, role):
     logger.info(f"restart_media_transcription(name={name}, job_uri={job_uri}, role={role})")
@@ -48,17 +48,32 @@ def process_s3_media_object(crawlername, bucketname, s3object, kendra_sync_job_i
     logger.info(f"process_s3_media_object() - Key: {s3url}")
     lastModified = s3object['LastModified'].strftime("%m:%d:%Y:%H:%M:%S")
     item = get_file_status(s3url)
+    job_name=None
     if (item == None):
         logger.info("New:" + s3url)
-        if start_media_transcription(crawlername, s3url, role):
-            put_file_status(s3url, lastModified, status="New", execution_id=kendra_sync_job_id, sync_state="RUNNING")
+        job_name = start_media_transcription(crawlername, s3url, role)
+        if job_name:
+            put_file_status(
+                s3url, lastModified, status="New", 
+                transcribe_job_id=job_name, transcribe_state="RUNNING", 
+                sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
+                )
     elif (lastModified != item['lastModified']):
-        logger.info("Modified:" + s3url)        
-        if restart_media_transcription(crawlername, s3url, role):
-            put_file_status(s3url, lastModified, status="Modified", execution_id=kendra_sync_job_id, sync_state="RUNNING")
+        logger.info("Modified:" + s3url)
+        job_name = restart_media_transcription(crawlername, s3url, role)
+        if job_name:
+            put_file_status(
+                s3url, lastModified, status="Modified", 
+                transcribe_job_id=job_name, transcribe_state="RUNNING", 
+                sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
+                )
     else:
-        logger.info("No updates - Active-current:" + s3url)
-        put_file_status(s3url, lastModified, status="Active-current",execution_id="NONE", sync_state="DONE")
+        logger.info("Unchanged:" + s3url)
+        put_file_status(
+            s3url, lastModified, status="Unchanged", 
+            transcribe_job_id="NONE", transcribe_state="DONE", 
+            sync_job_id="NONE", sync_state="DONE"
+            )
     return True
 
 def list_s3_media_objects(bucketname, prefix):
