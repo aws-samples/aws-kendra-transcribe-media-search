@@ -78,7 +78,6 @@ done
 
 S3PATH=s3://$BUCKET/$PREFIX
 echo "Copy $tmpdir/* to $S3PATH/"
-aws s3 rm ${S3PATH} --recursive
 for f in msfinder.yaml msindexer.yaml $indexerzip $buildtriggerzip $finderzip
 do
 aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} || exit 1
