@@ -147,8 +147,12 @@ def lambda_handler(event, context):
     # All done
     return exit_status(event, context, cfnresponse.SUCCESS)
     
-
     
+    
+if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    lambda_handler({},{})
     
     
     

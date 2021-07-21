@@ -104,8 +104,3 @@ def put_statusTableItem(s3url, lastModified='', size_bytes=None, status='', tran
         }
     )
     return response
-
-if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    lambda_handler({},{})
