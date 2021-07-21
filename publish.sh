@@ -80,16 +80,19 @@ S3PATH=s3://$BUCKET/$PREFIX
 echo "Copy $tmpdir/* to $S3PATH/"
 for f in msfinder.yaml msindexer.yaml $indexerzip $buildtriggerzip $finderzip
 do
-aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} || exit 1
+aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} --acl public-read || exit 1
 done
 
 # get bucket region for owned accounts, and generate URLs for Cfn templates
 region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="us-east-1"
 [ -z "$region" -o "$region" == "None" ] && region=us-east-1;
 echo "Outputs"
-echo Indexer CF Template URL: https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msindexer.yaml
-echo Finder CF Template URL: https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msfinder.yaml
-
+indexer_template="https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msindexer.yaml"
+finder_template="https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msfinder.yaml"
+echo Indexer Template URL: $indexer_template
+echo Finder Template URL: $finder_template
+echo Indexer - CF Launch URL: https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create/review?templateURL=${indexer_template}
+echo Finder - CF Launch URL: https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create/review?templateURL=${finder_template}
 
 echo Done
 exit 0
