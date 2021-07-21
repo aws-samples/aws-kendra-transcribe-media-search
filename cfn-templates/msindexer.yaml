@@ -247,7 +247,7 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn: !GetAtt DSSyncStartSchedule.Arn
 
-  CustomResource:
+  StartCrawler:
     Type: Custom::CustomResource
     DependsOn: 
       - S3CrawlLambdaFunction
