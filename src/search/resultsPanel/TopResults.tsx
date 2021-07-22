@@ -106,6 +106,7 @@ export default class TopResults extends React.Component<
       let documentFile = result.DocumentURI!.split('?');
       let videoFile = ( documentFile[0]!.toUpperCase().endsWith("MP4") ||
                         documentFile[0]!.toUpperCase().endsWith("OGX") ||
+                        documentFile[0]!.toUpperCase().endsWith("WEBM") ||
                         documentFile[0]!.toUpperCase().endsWith("OGV") );
       let audioFile = ( documentFile[0]!.toUpperCase().endsWith("MP3") ||
                         documentFile[0]!.toUpperCase().endsWith("WAV") ||

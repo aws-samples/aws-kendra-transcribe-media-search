@@ -255,6 +255,7 @@ export default class Search extends React.Component<SearchProps, SearchState> {
               result.DocumentURI.toUpperCase().endsWith(".SPX") || 
               result.DocumentURI.toUpperCase().endsWith(".OGV") || 
               result.DocumentURI.toUpperCase().endsWith(".OGX") || 
+              result.DocumentURI.toUpperCase().endsWith(".WEBM") || 
               result.DocumentURI.toUpperCase().endsWith(".MP4")
               ) {
             //Assume mediafile
