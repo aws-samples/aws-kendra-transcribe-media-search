@@ -37,8 +37,17 @@ export default class DocumentResults extends React.Component<
 
     const lastUpdated = selectMostRecentUpdatedTimestamp(attributes);
     let documentFile = result.DocumentURI!.split('?');
-    let videoFile = documentFile[0]!.endsWith("mp4");
-    let audioFile = documentFile[0]!.endsWith("mp3");
+    let videoFile = ( documentFile[0]!.toUpperCase().endsWith("MP4") ||
+                      documentFile[0]!.toUpperCase().endsWith("OGX") ||
+                      documentFile[0]!.toUpperCase().endsWith("OGV") );
+    let audioFile = ( documentFile[0]!.toUpperCase().endsWith("MP3") ||
+                      documentFile[0]!.toUpperCase().endsWith("WAV") ||
+                      documentFile[0]!.toUpperCase().endsWith("FLAC") ||
+                      documentFile[0]!.toUpperCase().endsWith("AMR") ||
+                      documentFile[0]!.toUpperCase().endsWith("3GA") ||
+                      documentFile[0]!.toUpperCase().endsWith("OGA") ||
+                      documentFile[0]!.toUpperCase().endsWith("OGG") ||
+                      documentFile[0]!.toUpperCase().endsWith("SPX") );
 
     return (
       <div className="container-body" key={result.Id}>
