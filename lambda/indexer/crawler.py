@@ -7,9 +7,9 @@ import cfnresponse
 SUPPORTED_MEDIA_TYPES = ["mp3","mp4","wav","flac","ogg","amr","webm"]
 
 from common import logger
-from common import MEDIA_BUCKET, MEDIA_FOLDER_PREFIX, INDEX_ID, DS_ID, STACK_NAME, MEDIA_FILE_TABLE, TRANSCRIBE_ROLE
-from common import S3, TRANSCRIBE, KENDRA, DYNAMODB, TABLE
-from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done
+from common import MEDIA_BUCKET, MEDIA_FOLDER_PREFIX, INDEX_ID, DS_ID, STACK_NAME, TRANSCRIBE_ROLE
+from common import S3, TRANSCRIBE
+from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions
 from common import get_crawler_state, put_crawler_state, get_file_status, put_file_status
 
 # generate a unique job name for transcribe satisfying the naming regex requirements 
@@ -50,32 +50,32 @@ def process_s3_media_object(crawlername, bucketname, s3object, kendra_sync_job_i
     size_bytes = s3object['Size']
     item = get_file_status(s3url)
     job_name=None
-    if (item == None):
-        logger.info("New:" + s3url)
+    if (item == None or item.get("status") == "DELETED"):
+        logger.info("NEW:" + s3url)
         job_name = start_media_transcription(crawlername, s3url, role)
         if job_name:
             put_file_status(
-                s3url, lastModified, size_bytes, status="New", 
+                s3url, lastModified, size_bytes, duration_secs=None, status="ACTIVE-NEW", 
                 transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None, 
                 sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
                 )
     elif (lastModified != item['lastModified']):
-        logger.info("Modified:" + s3url)
+        logger.info("MODIFIED:" + s3url)
         job_name = restart_media_transcription(crawlername, s3url, role)
         if job_name:
             put_file_status(
-                s3url, lastModified, size_bytes, status="Modified", 
+                s3url, lastModified, size_bytes, duration_secs=None, status="ACTIVE-MODIFIED", 
                 transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None,
                 sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
                 )
     else:
-        logger.info("Unchanged:" + s3url)
+        logger.info("UNCHANGED:" + s3url)
         put_file_status(
-            s3url, lastModified, size_bytes, status="Unchanged", 
+            s3url, lastModified, size_bytes, duration_secs=item['duration_secs'], status="ACTIVE-UNCHANGED", 
             transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=item['transcribe_secs'],
             sync_job_id=item['sync_job_id'], sync_state="DONE"
             )
-    return True
+    return s3url
 
 def list_s3_media_objects(bucketname, prefix):
     logger.info(f"list_s3_media_objects({bucketname},{prefix})")
@@ -121,6 +121,7 @@ def lambda_handler(event, context):
             return exit_status(event, context, cfnresponse.SUCCESS)
             
     # Start crawler, and set status in DynamoDB table
+    logger.info("** Start crawler **")
     kendra_sync_job = start_kendra_sync_job(dsId=DS_ID, indexId=INDEX_ID)
     if (kendra_sync_job == None):
         logger.info("Previous sync job still running. Exiting")
@@ -128,17 +129,25 @@ def lambda_handler(event, context):
     put_crawler_state(STACK_NAME,'RUNNING')  
         
     # process S3 media objects
+    s3files=[]
     try:
+        logger.info("** List and process S3 media objects **")
         s3mediaobjects = list_s3_media_objects(MEDIA_BUCKET, MEDIA_FOLDER_PREFIX)
         for s3mediaobject in s3mediaobjects:
-            process_s3_media_object(STACK_NAME, MEDIA_BUCKET, s3mediaobject, kendra_sync_job['ExecutionId'], TRANSCRIBE_ROLE)
+            s3url=process_s3_media_object(STACK_NAME, MEDIA_BUCKET, s3mediaobject, kendra_sync_job['ExecutionId'], TRANSCRIBE_ROLE)
+            s3files.append(s3url)
+        # detect and delete indexed docs where files that are no longer in the source bucket location
+        # reasons: file deleted, or indexer config updated to crawl a new location
+        logger.info("** Process deletions **")
+        process_deletions(DS_ID, INDEX_ID, s3files)
     except Exception as e:
         logger.error("Exception: " + str(e))
         put_crawler_state(STACK_NAME, 'STOPPED')            
         stop_kendra_sync_job_when_all_done(dsId=DS_ID, indexId=INDEX_ID)
         return exit_status(event, context, cfnresponse.FAILED)
-        
+
     # Stop crawler
+    logger.info("** Stop crawler **")
     put_crawler_state(STACK_NAME, 'STOPPED')
     
     # Stop media sync job if no new transcription jobs were started

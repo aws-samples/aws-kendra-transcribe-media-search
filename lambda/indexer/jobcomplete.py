@@ -66,6 +66,7 @@ def put_document(dsId, indexId, s3url, text):
 
 def prepare_transcript(transcript_uri):
     logger.info(f"prepare_transcript(transcript_uri={transcript_uri[0:100]}...)")
+    duration_secs=0
     response = urllib.request.urlopen(transcript_uri)
     transcript = json.loads(response.read())
     items = transcript["results"]["items"]
@@ -82,10 +83,11 @@ def prepare_transcript(transcript_uri):
             if (sentence == ''):
                 sentence = "[" + i["start_time"] + "]"
             sentence = sentence + " " + i["alternatives"][0]["content"]
+            duration_secs = i["end_time"]
     if (sentence != ""):
         txt = txt + " " + sentence + " "
     out = textwrap.fill(txt, width=70)
-    return out
+    return [duration_secs, out]
 
 def get_transcription_job(job_name):
     logger.info(f"get_transcription_job({job_name})")
@@ -113,6 +115,7 @@ def lambda_handler(event, context):
     logger.info(f"Transcription job name: {job_name}")
     
     # get results of Amazon Transcribe job
+    logger.info("** Retrieve transcription job **")
     transcription_job = get_transcription_job(job_name)
     
     if transcription_job == None or ('TranscriptionJob' not in transcription_job):
@@ -129,33 +132,35 @@ def lambda_handler(event, context):
             failure_reason = transcription_job['TranscriptionJob']['FailureReason']
             logger.error(f"Transcribe job failed: {job_status} - Reason {failure_reason}")
             put_file_status(
-                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
                 transcribe_job_id=item['transcribe_job_id'], transcribe_state="FAILED", transcribe_secs=None,
                 sync_job_id=item['sync_job_id'], sync_state="NOT_SYNCED"
                 )            
         else:
             # job completed
+            logger.info("** Process transcription and prepare for indexing **")
             transcript_uri = transcription_job['TranscriptionJob']['Transcript']['TranscriptFileUri']
             transcribe_secs = get_transcription_job_duration(transcription_job)
             # Update transcribe_state
             put_file_status(
-                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
                 transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                 sync_job_id=item['sync_job_id'], sync_state=item['sync_state']
                 )
             try:
-                text = prepare_transcript(transcript_uri)
+                logger.info("** Index transcription document in Kendra **")
+                [duration_secs, text] = prepare_transcript(transcript_uri)
                 put_document(dsId=DS_ID, indexId=INDEX_ID, s3url=media_s3url, text=text)
                 # Update sync_state
                 put_file_status(
-                    media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                    media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=duration_secs, status=item['status'], 
                     transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                     sync_job_id=item['sync_job_id'], sync_state="DONE"
                     )
             except Exception as e:
                 logger.error("Exception thrown during indexing: " + str(e))
                 put_file_status(
-                    media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], status=item['status'], 
+                    media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
                     transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs, 
                     sync_job_id=item['sync_job_id'], sync_state="FAILED"
                     )
