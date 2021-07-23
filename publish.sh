@@ -104,7 +104,7 @@ if [ ! -z "$SAMPLES_BUCKET" ]; then
     dflt_media_region=$(aws s3api get-bucket-location --bucket $SAMPLES_BUCKET --query "LocationConstraint" --output text) || dflt_media_region="us-east-1"
     [ -z "dflt_media_region" -o "dflt_media_region" == "None" ] && dflt_media_region=us-east-1;
     if [ "$dflt_media_region" != "$region" ]; then
-        echo "WARNING!!! Default media bucket region ($dflt_media_region) does not match depoyment bucket region ($region).. Media bucket ($SAMPLES_BUCKET) must be in same region as deployment bucket ($BUCKET)"
+        echo "WARNING!!! Default media bucket region ($dflt_media_region) does not match deployment bucket region ($region).. Media bucket ($SAMPLES_BUCKET) must be in same region as deployment bucket ($BUCKET)"
     fi
 fi
 
