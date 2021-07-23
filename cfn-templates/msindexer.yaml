@@ -264,9 +264,11 @@ Parameters:
   MediaBucket:
     Type: String
     Default: '<SAMPLES_BUCKET>'
+    Description: 'S3 bucket name containing media files in the region where you are deploying (<REGION>)'
   MediaFolderPrefix:
     Type: String
     Default: '<SAMPLES_PREFIX>'
+    Description: 'Prefix for media folder in the media bucket (e.g. path/to/files/)'
   SyncSchedule:
     Type: String
     Default: '24 hours'
@@ -277,7 +279,7 @@ Parameters:
       - '24 hours'
       - '48 hours'
       - '72 hours'
-    Description: 'Select frequency to synchronize the S3 bucket with the Kendra index - 6 hours, 12 hours, 24 hours. The default is 24 hours'
+    Description: 'Frequency to synchronize the S3 bucket with the Kendra index - 6 hours, 12 hours, 24 hours. The default is 24 hours'
   ExistingIndexId:
     Default: ''
     Type: String

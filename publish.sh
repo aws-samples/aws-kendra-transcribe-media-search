@@ -1,11 +1,20 @@
 #!/bin/bash
 
-###############################################################################
+##############################################################################################
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+##############################################################################################
+
+##############################################################################################
 # Create new Cfn artifacts bucket if not already existing
 # Modify templates to reference new bucket names and prefixes
 # create lambda zipfiles with timestamps to ensure redeployment on stack update
 # Upload templates to S3 bucket
-###############################################################################
+#
+# To deploy to non-default region, set AWS_DEFAULT_REGION to region supported by Amazon Kendra
+# See: https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/ - E.g.
+# export AWS_DEFAULT_REGION=eu-west-1
+##############################################################################################
 
 USAGE="$0 cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix]"
 
@@ -26,7 +35,7 @@ SAMPLES_PREFIX=$4
 aws s3api list-buckets --query 'Buckets[].Name' | grep "\"$BUCKET\"" > /dev/null 2>&1
 if [ $? -ne 0 ]; then
   echo "Creating s3 bucket: $BUCKET"
-  aws s3api create-bucket --bucket ${BUCKET} || exit 1
+  aws s3 mb s3://${BUCKET} || exit 1
   aws s3api put-bucket-versioning --bucket ${BUCKET} --versioning-configuration Status=Enabled || exit 1
 else
   echo "Using existing bucket: $BUCKET"
@@ -55,12 +64,17 @@ echo "Create zipfile for AWS Amplify/CodeCommit"
 finderzip=finder_$timestamp.zip
 zip -r $tmpdir/$finderzip ./*
 
+# get bucket region for owned accounts
+region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="us-east-1"
+[ -z "$region" -o "$region" == "None" ] && region=us-east-1;
+
 echo "Inline edit Cfn templates to replace "
 echo "   <ARTIFACT_BUCKET_TOKEN> with bucket name: $BUCKET"
 echo "   <ARTIFACT_PREFIX_TOKEN> with prefix: $PREFIX"
 echo "   <INDEXER_ZIPFILE> with zipfile: $indexerzip"
 echo "   <BUILDTRIGGER_ZIPFILE> with zipfile: $buildtriggerzip"
 echo "   <FINDER_ZIPFILE> with zipfile: $finderzip"
+echo "   <REGION> with region: $region"
 [ -z "$SAMPLES_BUCKET" ] || echo "   <SAMPLES_BUCKET> with bucket name: $SAMPLES_BUCKET"
 [ -z "$SAMPLES_PREFIX" ] || echo "   <SAMPLES_PREFIX> with prefix: $SAMPLES_PREFIX"
 for template in msindexer.yaml msfinder.yaml
@@ -73,7 +87,8 @@ do
     sed -e "s%<BUILDTRIGGER_ZIPFILE>%$buildtriggerzip%g" |
     sed -e "s%<FINDER_ZIPFILE>%$finderzip%g" |
     sed -e "s%<SAMPLES_BUCKET>%$SAMPLES_BUCKET%g" |
-    sed -e "s%<SAMPLES_PREFIX>%$SAMPLES_PREFIX%g" > $tmpdir/$template
+    sed -e "s%<SAMPLES_PREFIX>%$SAMPLES_PREFIX%g" |
+    sed -e "s%<REGION>%$region%g" > $tmpdir/$template
 done
 
 S3PATH=s3://$BUCKET/$PREFIX
@@ -83,9 +98,14 @@ do
 aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} --acl public-read || exit 1
 done
 
-# get bucket region for owned accounts, and generate URLs for Cfn templates
-region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="us-east-1"
-[ -z "$region" -o "$region" == "None" ] && region=us-east-1;
+# get default media bucket region and warn if it is different than Cfn bucket region
+# media bucket must be in the same region as deployed stack (or Transcribe jobs fail)
+if [ ! -z "$SAMPLES_BUCKET" ]; then
+    dflt_media_region=$(aws s3api get-bucket-location --bucket $SAMPLES_BUCKET --query "LocationConstraint" --output text) || dflt_media_region="us-east-1"
+    [ -z "dflt_media_region" -o "dflt_media_region" == "None" ] && dflt_media_region=us-east-1;
+    [ "dflt_media_region" == "$region"] || echo "WARNING!!! Default media bucket region ($dflt_media_region) does not match depoyment bucket region ($region).. Media bucket ($SAMPLES_BUCKET) must be in same region as deployment bucket ($BUCKET)"
+fi
+
 echo "Outputs"
 indexer_template="https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msindexer.yaml"
 finder_template="https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msfinder.yaml"
