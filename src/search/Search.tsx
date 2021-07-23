@@ -244,7 +244,20 @@ export default class Search extends React.Component<SearchProps, SearchState> {
         if (!isNullOrUndefined(this.props.s3) && result.DocumentURI) {
           let mediafile = false;
           let offset = "";
-          if (result.DocumentURI.endsWith(".mp3") || result.DocumentURI.endsWith(".mp4")) {
+          if (
+              result.DocumentURI.toUpperCase().endsWith(".MP3") || 
+              result.DocumentURI.toUpperCase().endsWith(".WAV") || 
+              result.DocumentURI.toUpperCase().endsWith(".FLAC") || 
+              result.DocumentURI.toUpperCase().endsWith(".AMR") || 
+              result.DocumentURI.toUpperCase().endsWith(".3GA") || 
+              result.DocumentURI.toUpperCase().endsWith(".OGA") || 
+              result.DocumentURI.toUpperCase().endsWith(".OGG") || 
+              result.DocumentURI.toUpperCase().endsWith(".SPX") || 
+              result.DocumentURI.toUpperCase().endsWith(".OGV") || 
+              result.DocumentURI.toUpperCase().endsWith(".OGX") || 
+              result.DocumentURI.toUpperCase().endsWith(".WEBM") || 
+              result.DocumentURI.toUpperCase().endsWith(".MP4")
+              ) {
             //Assume mediafile
             mediafile = true;
             const answerText = result.DocumentExcerpt!.Text;
