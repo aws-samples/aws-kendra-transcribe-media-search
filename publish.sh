@@ -113,8 +113,9 @@ indexer_template="https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msindexe
 finder_template="https://s3.${region}.amazonaws.com/${BUCKET}/${PREFIX}msfinder.yaml"
 echo Indexer Template URL: $indexer_template
 echo Finder Template URL: $finder_template
-echo Indexer - CF Launch URL: https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create/review?templateURL=${indexer_template}
-echo Finder - CF Launch URL: https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create/review?templateURL=${finder_template}
+echo Indexer - CF Launch URL: https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create/review?templateURL=${indexer_template}\&stackName=MediaSearch-Indexer
+echo Finder - CF Launch URL: https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create/review?templateURL=${finder_template}\&stackName=MediaSearch-Finder
 
 echo Done
 exit 0
+
