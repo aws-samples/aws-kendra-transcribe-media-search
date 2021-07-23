@@ -138,7 +138,6 @@ def lambda_handler(event, context):
                 )            
         else:
             # job completed
-            logger.info("** Process transcription and prepare for indexing **")
             transcript_uri = transcription_job['TranscriptionJob']['Transcript']['TranscriptFileUri']
             transcribe_secs = get_transcription_job_duration(transcription_job)
             # Update transcribe_state
@@ -148,8 +147,9 @@ def lambda_handler(event, context):
                 sync_job_id=item['sync_job_id'], sync_state=item['sync_state']
                 )
             try:
-                logger.info("** Index transcription document in Kendra **")
+                logger.info("** Process transcription and prepare for indexing **")
                 [duration_secs, text] = prepare_transcript(transcript_uri)
+                logger.info("** Index transcription document in Kendra **")
                 put_document(dsId=DS_ID, indexId=INDEX_ID, s3url=media_s3url, text=text)
                 # Update sync_state
                 put_file_status(
