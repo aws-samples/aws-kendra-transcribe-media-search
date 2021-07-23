@@ -212,8 +212,6 @@ Resources:
             preBuild:
               commands:
                 - npm install
-                - npm install typescript@4.0.5
-                - npm install react-player
             build:
               commands:
                 - npm run build
