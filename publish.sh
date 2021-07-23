@@ -62,7 +62,7 @@ popd
 
 echo "Create zipfile for AWS Amplify/CodeCommit"
 finderzip=finder_$timestamp.zip
-zip -r $tmpdir/$finderzip ./*
+zip -r $tmpdir/$finderzip ./* -x "node_modules*"
 
 # get bucket region for owned accounts
 region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="us-east-1"
