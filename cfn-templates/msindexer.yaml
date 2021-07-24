@@ -194,6 +194,7 @@ Resources:
         Variables:
           MEDIA_BUCKET: !Ref MediaBucket
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
+          METADATA_FOLDER_PREFIX: !Ref MetadataFolderPrefix
           MEDIA_FILE_TABLE: !Ref MediaDynamoTable
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMediaDS.Id
@@ -270,6 +271,10 @@ Parameters:
     Type: String
     Default: '<SAMPLES_PREFIX>'
     Description: 'Prefix for media folder in the media bucket (e.g. path/to/files/)'
+  MetadataFolderPrefix:
+    Type: String
+    Default: ''
+    Description: '(Optional) Prefix for parallel metadata folder in the media bucket (e.g. path/to/files/)'
   SyncSchedule:
     Type: String
     Default: '24 hours'

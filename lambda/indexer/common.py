@@ -14,6 +14,7 @@ logger.setLevel(logging.INFO)
 # Environment variables
 MEDIA_BUCKET = os.environ['MEDIA_BUCKET']
 MEDIA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
+METADATA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
 INDEX_ID = os.environ['INDEX_ID']
 DS_ID = os.environ['DS_ID']
 STACK_NAME = os.environ['STACK_NAME']
@@ -166,12 +167,15 @@ def put_crawler_state(name, status):
     logger.info(f"put_crawler_status({name}, status={status})")
     return put_statusTableItem(id=name, crawler_state=status)
     
-def put_file_status(s3url, lastModified, size_bytes, duration_secs, status, transcribe_job_id, transcribe_state, transcribe_secs, sync_job_id, sync_state):
-    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, size_bytes={size_bytes}, duration_secs={duration_secs}, status={status}, transcribe_job_id={transcribe_job_id}, transcribe_state={transcribe_state}, transcribe_secs={transcribe_secs}, sync_job_id={sync_job_id}, sync_state={sync_state})")
-    return put_statusTableItem(s3url, lastModified, size_bytes, duration_secs, status, transcribe_job_id, transcribe_state, transcribe_secs, sync_job_id, sync_state)
+def put_file_status(s3url, lastModified, size_bytes, duration_secs, status,
+                    metadata_url, metadata_lastModified,
+                    transcribe_job_id, transcribe_state, transcribe_secs, 
+                    sync_job_id, sync_state):
+    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, size_bytes={size_bytes}, duration_secs={duration_secs}, status={status}, metadata_url={metadata_url}, metadata_lastModified={metadata_lastModified}, transcribe_job_id={transcribe_job_id}, transcribe_state={transcribe_state}, transcribe_secs={transcribe_secs}, sync_job_id={sync_job_id}, sync_state={sync_state})")
+    return put_statusTableItem(s3url, lastModified, size_bytes, duration_secs, status, metadata_url, metadata_lastModified, transcribe_job_id, transcribe_state, transcribe_secs, sync_job_id, sync_state)
 
 # Currently use same DynamoDB table to track status of indexer (id=stackname) as well as each S3 media file (id=s3url)
-def put_statusTableItem(id, lastModified=None, size_bytes=None, duration_secs=None, status=None, transcribe_job_id=None, transcribe_state=None, transcribe_secs=None, sync_job_id=None, sync_state=None, crawler_state=None):
+def put_statusTableItem(id, lastModified=None, size_bytes=None, duration_secs=None, status=None, metadata_url=None, metadata_lastModified=None, transcribe_job_id=None, transcribe_state=None, transcribe_secs=None, sync_job_id=None, sync_state=None, crawler_state=None):
     response = TABLE.put_item(
        Item={
             'id': id,
@@ -179,6 +183,8 @@ def put_statusTableItem(id, lastModified=None, size_bytes=None, duration_secs=No
             'size_bytes': size_bytes,
             'duration_secs': duration_secs,
             'status': status,
+            'metadata_url': metadata_url,
+            'metadata_lastModified': metadata_lastModified,
             'transcribe_job_id': transcribe_job_id,
             'transcribe_state': transcribe_state,
             'transcribe_secs': transcribe_secs,

@@ -135,7 +135,8 @@ def lambda_handler(event, context):
             failure_reason = transcription_job['TranscriptionJob']['FailureReason']
             logger.error(f"Transcribe job failed: {job_status} - Reason {failure_reason}")
             put_file_status(
-                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
+                media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'],
+                metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
                 transcribe_job_id=item['transcribe_job_id'], transcribe_state="FAILED", transcribe_secs=None,
                 sync_job_id=item['sync_job_id'], sync_state="NOT_SYNCED"
                 )            
@@ -146,6 +147,7 @@ def lambda_handler(event, context):
             # Update transcribe_state
             put_file_status(
                 media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
+                metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
                 transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                 sync_job_id=item['sync_job_id'], sync_state=item['sync_state']
                 )
@@ -157,6 +159,7 @@ def lambda_handler(event, context):
                 # Update sync_state
                 put_file_status(
                     media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=duration_secs, status=item['status'], 
+                    metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
                     transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                     sync_job_id=item['sync_job_id'], sync_state="DONE"
                     )
@@ -164,6 +167,7 @@ def lambda_handler(event, context):
                 logger.error("Exception thrown during indexing: " + str(e))
                 put_file_status(
                     media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
+                    metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
                     transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs, 
                     sync_job_id=item['sync_job_id'], sync_state="FAILED"
                     )
