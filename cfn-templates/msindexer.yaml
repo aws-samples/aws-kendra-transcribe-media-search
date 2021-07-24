@@ -80,9 +80,8 @@ Resources:
         - 
           AttributeName: "id"
           KeyType: "HASH"
-      ProvisionedThroughput: 
-            ReadCapacityUnits: "5"
-            WriteCapacityUnits: "5"
+      BillingMode: "PAY_PER_REQUEST"
+
             
   TranscribeDataAccessRole:
     Type: AWS::IAM::Role
@@ -159,7 +158,8 @@ Resources:
       Handler: crawler.lambda_handler
       Runtime: python3.8
       Role: !GetAtt 'MediaLambdaRole.Arn'
-      Timeout: 300
+      Timeout: 900
+      MemorySize: 1024
       Code:
         S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
         S3Key: !Join
@@ -183,6 +183,7 @@ Resources:
       Runtime: python3.8
       Role: !GetAtt 'MediaLambdaRole.Arn'
       Timeout: 300
+      MemorySize: 1024
       Code:
         S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
         S3Key: !Join
