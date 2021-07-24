@@ -125,8 +125,8 @@ def lambda_handler(event, context):
             
     # Start crawler, and set status in DynamoDB table
     logger.info("** Start crawler **")
-    kendra_sync_job = start_kendra_sync_job(dsId=DS_ID, indexId=INDEX_ID)
-    if (kendra_sync_job == None):
+    kendra_sync_job_id = start_kendra_sync_job(dsId=DS_ID, indexId=INDEX_ID)
+    if (kendra_sync_job_id == None):
         logger.info("Previous sync job still running. Exiting")
         return exit_status(event, context, cfnresponse.SUCCESS)
     put_crawler_state(STACK_NAME,'RUNNING')  
@@ -137,12 +137,12 @@ def lambda_handler(event, context):
         logger.info("** List and process S3 media objects **")
         s3mediaobjects = list_s3_media_objects(MEDIA_BUCKET, MEDIA_FOLDER_PREFIX)
         for s3mediaobject in s3mediaobjects:
-            s3url=process_s3_media_object(STACK_NAME, MEDIA_BUCKET, s3mediaobject, kendra_sync_job['ExecutionId'], TRANSCRIBE_ROLE)
+            s3url=process_s3_media_object(STACK_NAME, MEDIA_BUCKET, s3mediaobject, kendra_sync_job_id, TRANSCRIBE_ROLE)
             s3files.append(s3url)
         # detect and delete indexed docs where files that are no longer in the source bucket location
         # reasons: file deleted, or indexer config updated to crawl a new location
         logger.info("** Process deletions **")
-        process_deletions(DS_ID, INDEX_ID, s3files)
+        process_deletions(DS_ID, INDEX_ID, kendra_sync_job_id=kendra_sync_job_id, s3files=s3files)
     except Exception as e:
         logger.error("Exception: " + str(e))
         put_crawler_state(STACK_NAME, 'STOPPED')            

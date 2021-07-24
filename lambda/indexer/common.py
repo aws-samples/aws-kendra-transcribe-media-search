@@ -43,7 +43,7 @@ def start_kendra_sync_job(dsId, indexId):
     logger.info(f"start data source sync job")
     response = KENDRA.start_data_source_sync_job(Id=dsId, IndexId=indexId)
     logger.info(f"response:" + json.dumps(response))
-    return response
+    return response['ExecutionId']
 
 def stop_kendra_sync_job_when_all_done(dsId, indexId):
     logger.info(f"stop_kendra_sync_job_when_all_done(dsId={dsId}, indexId={indexId})")
@@ -95,15 +95,19 @@ def batches(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
         
-def delete_kendra_docs(dsId, indexId, deletions):
-    logger.info(f"delete_kendra_docs(dsId={dsId}, indexId={indexId}, deletions[])")
+def delete_kendra_docs(dsId, indexId, kendra_sync_job_id, deletions):
+    logger.info(f"delete_kendra_docs(dsId={dsId}, indexId={indexId}, deletions[{len(deletions)} docs..])")
     deletion_batches = list(batches(deletions,10))
     for deletion_batch in deletion_batches:
         try:
             logger.info(f"KENDRA.batch_delete_document - {len(deletion_batch)} documents, first few: {deletion_batch[0:2]}")
             response = KENDRA.batch_delete_document(
                 IndexId=indexId,
-                DocumentIdList=deletion_batch
+                DocumentIdList=deletion_batch,
+                DataSourceSyncJobMetricTarget={
+                    'DataSourceId': dsId,
+                    'DataSourceSyncJobId': kendra_sync_job_id
+                    }
                 )
             if "FailedDocuments" in response:
                 for failedDocument in response["FailedDocuments"]:
@@ -116,7 +120,7 @@ def delete_kendra_docs(dsId, indexId, deletions):
             return False
     return True
 
-def process_deletions(dsId, indexId, s3files):
+def process_deletions(dsId, indexId, kendra_sync_job_id, s3files):
     logger.info(f"process_deleted_files(dsId={dsId}, indexId={indexId}, s3files[])")
     # get list of indexed files from the DynamoDB table
     indexed_files = get_all_indexed_files()
@@ -128,7 +132,7 @@ def process_deletions(dsId, indexId, s3files):
         logger.info(f"Deleted file count: {len(deletions)}, first few: {deletions[0:2]}...")
         for s3url in deletions:
             put_statusTableItem(id=s3url, status="DELETED", sync_state="DELETED")
-        delete_kendra_docs(dsId, indexId, deletions)
+        delete_kendra_docs(dsId, indexId, kendra_sync_job_id, deletions)
     else:
         logger.info("No deleted files.. nothing to do")
     return True
