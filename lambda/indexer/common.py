@@ -63,18 +63,18 @@ def stop_kendra_sync_job_when_all_done(dsId, indexId):
         KENDRA.stop_data_source_sync_job(Id=dsId, IndexId=indexId)
         i = 0
         while True: 
+            logger.info(f"waiting 5sec for sync job to stop")
+            time.sleep(5)
             kendra_sync_running = is_kendra_sync_running(dsId, indexId)
             if not kendra_sync_running: 
                 logger.info(f"Data Source Sync is stopped.")
                 break
             if kendra_sync_running == "SYNCING_INDEXING":
-                logger.info(f"Data Source Sync is in SYNCING_INDEXING state.. unable to stop from this state.")
+                logger.info(f"Data Source Sync is in SYNCING_INDEXING state.. it will stop automatically - unable to force stop.")
                 break
             if i >= 10:
                 logger.info(f"Data Source Sync is in state {kendra_sync_running}. Timed out waiting for it to stop.")
                 break
-            logger.info(f"waiting 5sec for sync job to stop")
-            time.sleep(5)  # wait a few seconds for sync job to stop
             i += 1
     else:
         logger.info(f"Can't stop Data Source since Transcribe jobs are still running - count: {response['Count']}")
