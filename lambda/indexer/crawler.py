@@ -1,19 +1,28 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
-
+import os
 import json
 import re
 import time
 import cfnresponse
+import boto3
 
 # Media file suffixes must match one of the supported file types
 SUPPORTED_MEDIA_TYPES = ["mp3","mp4","wav","flac","ogg","amr","webm"]
 
 from common import logger
-from common import MEDIA_BUCKET, MEDIA_FOLDER_PREFIX, METADATA_FOLDER_PREFIX, INDEX_ID, DS_ID, STACK_NAME, TRANSCRIBE_ROLE
+from common import INDEX_ID, DS_ID, STACK_NAME
 from common import S3, TRANSCRIBE
 from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions
 from common import get_crawler_state, put_crawler_state, get_file_status, put_file_status
+from common import get_transcription_job
+
+MEDIA_BUCKET = os.environ['MEDIA_BUCKET']
+MEDIA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
+METADATA_FOLDER_PREFIX = os.environ['METADATA_FOLDER_PREFIX']
+JOBCOMPLETE_FUNCTION = os.environ['JOBCOMPLETE_FUNCTION']
+TRANSCRIBE_ROLE = os.environ['TRANSCRIBE_ROLE']
+LAMBDA = boto3.client('lambda')
 
 # generate a unique job name for transcribe satisfying the naming regex requirements 
 def transcribe_job_name(*args):
@@ -45,6 +54,21 @@ def start_media_transcription(name, job_uri, role):
 def restart_media_transcription(name, job_uri, role):
     logger.info(f"restart_media_transcription(name={name}, job_uri={job_uri}, role={role})")
     return start_media_transcription(name, job_uri, role)
+    
+def reindex_existing_doc_with_new_metadata(transcribe_job_id):
+    event = json.dumps({
+        'detail':{
+            'TranscriptionJobName':transcribe_job_id, 
+            'Source': "Crawler Lambda",
+            'Descr': "Metadata modified - reindex existing transcription"
+            }
+        })
+    logger.info(f"Existing transcript is still available.. invoking JobComplete function directly to reindex existing transcription: Event={event}")
+    LAMBDA.invoke_async(
+        FunctionName=JOBCOMPLETE_FUNCTION,
+        InvokeArgs=bytes(event, "utf8")
+        )
+    return True
 
 def process_s3_media_object(crawlername, bucketname, s3url, s3object, s3metadataobject, kendra_sync_job_id, role):
     logger.info(f"process_s3_media_object() - Key: {s3url}")
@@ -53,7 +77,7 @@ def process_s3_media_object(crawlername, bucketname, s3url, s3object, s3metadata
     metadata_url = None
     metadata_lastModified = None
     if s3metadataobject:
-        metadata_url = f"s3://{bucketname}/{s3metadataobject['Key']}" if s3metadataobject else None
+        metadata_url = f"s3://{bucketname}/{s3metadataobject['Key']}"
         metadata_lastModified = s3metadataobject['LastModified'].strftime("%m:%d:%Y:%H:%M:%S")
     item = get_file_status(s3url)
     job_name=None
@@ -79,16 +103,25 @@ def process_s3_media_object(crawlername, bucketname, s3url, s3object, s3metadata
                 )
     elif (metadata_lastModified != item['metadata_lastModified']):
         logger.info("METADATA_MODIFIED:" + s3url)
-        # TODO - if previous transcription is still available we can avoid re-transcribing
-        # - add a call to Transcribe API.. if available, invoke jobComplete lambda direct and avoid re-transcribing
-        job_name = restart_media_transcription(crawlername, s3url, role)
-        if job_name:
+        if get_transcription_job(item['transcribe_job_id']):
+            # reindex existing transcription with new metadata
+            reindex_existing_doc_with_new_metadata(item['transcribe_job_id'])
             put_file_status(
                 s3url, lastModified, size_bytes, duration_secs=None, status="ACTIVE-METADATA_MODIFIED", 
                 metadata_url=metadata_url, metadata_lastModified=metadata_lastModified,
-                transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None,
+                transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=item['transcribe_secs'],
                 sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
                 )
+        else:
+            # previous transcription gone - retranscribe 
+            job_name = restart_media_transcription(crawlername, s3url, role)
+            if job_name:
+                put_file_status(
+                    s3url, lastModified, size_bytes, duration_secs=None, status="ACTIVE-METADATA_MODIFIED", 
+                    metadata_url=metadata_url, metadata_lastModified=metadata_lastModified,
+                    transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None,
+                    sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
+                    )
     else:
         logger.info("UNCHANGED:" + s3url)
         put_file_status(
@@ -138,7 +171,7 @@ def list_s3_media_and_metadata_objects(bucketname, media_prefix, metadata_prefix
                     logger.info("Supported media file type: " + s3object['Key'])
                     media_url = f"s3://{bucketname}/{s3object['Key']}"
                     s3mediaobjects[media_url]=s3object
-                elif metadata_prefix==None and is_supported_metadata_file(s3object['Key']):
+                elif metadata_prefix=="" and is_supported_metadata_file(s3object['Key']):
                     ref_media_key = get_metadata_ref_file_key(s3object['Key'], media_prefix, metadata_prefix)
                     logger.info(f"Metadata file: {s3object['Key']}. References media file: {ref_media_key}")
                     media_url = f"s3://{bucketname}/{ref_media_key}"

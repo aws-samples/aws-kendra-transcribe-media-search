@@ -106,7 +106,7 @@ Resources:
                   - bucket: !Ref MediaBucket
           PolicyName: TranscribeDataAccessPolicy
   
-  MediaLambdaRole:
+  CrawlerLambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -150,39 +150,19 @@ Resources:
                 Resource: !GetAtt 'TranscribeDataAccessRole.Arn'
                 Action:
                   - 'iam:PassRole'
-          PolicyName: MediaLambdaPolicy
+              - Effect: Allow
+                Resource: !GetAtt 'S3JobCompletionLambdaFunction.Arn'
+                Action:
+                  - 'lambda:InvokeFunction'
+          PolicyName: CrawlerLambdaPolicy
           
   S3CrawlLambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
       Handler: crawler.lambda_handler
       Runtime: python3.8
-      Role: !GetAtt 'MediaLambdaRole.Arn'
+      Role: !GetAtt 'CrawlerLambdaRole.Arn'
       Timeout: 900
-      MemorySize: 1024
-      Code:
-        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-        S3Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<INDEXER_ZIPFILE>'
-      Environment:
-        Variables:
-          MEDIA_BUCKET: !Ref MediaBucket
-          MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
-          MEDIA_FILE_TABLE: !Ref MediaDynamoTable
-          INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
-          DS_ID: !GetAtt KendraMediaDS.Id
-          STACK_NAME: !Ref AWS::StackName
-          TRANSCRIBE_ROLE: !GetAtt 'TranscribeDataAccessRole.Arn'
-  
-  S3JobCompletionLambdaFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: jobcomplete.lambda_handler
-      Runtime: python3.8
-      Role: !GetAtt 'MediaLambdaRole.Arn'
-      Timeout: 300
       MemorySize: 1024
       Code:
         S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
@@ -200,7 +180,71 @@ Resources:
           DS_ID: !GetAtt KendraMediaDS.Id
           STACK_NAME: !Ref AWS::StackName
           TRANSCRIBE_ROLE: !GetAtt 'TranscribeDataAccessRole.Arn'
-  
+          JOBCOMPLETE_FUNCTION: !Ref S3JobCompletionLambdaFunction
+
+  JobCompleteLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !Sub
+                  - 'arn:aws:kendra:${region}:${account}:index/${index}*'
+                  - region: !Ref 'AWS::Region'
+                    account: !Ref 'AWS::AccountId'
+                    index: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+                Action:
+                  - 'kendra:*'
+              - Effect: Allow
+                Resource: !Sub
+                  - 'arn:aws:s3:::${bucket}*'
+                  - bucket: !Ref MediaBucket
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:GetBucketLocation'
+              - Effect: Allow
+                Resource: !GetAtt MediaDynamoTable.Arn
+                Action:
+                  - 'dynamodb:*'
+              - Effect: Allow
+                Resource: '*'
+                Action:
+                  - 'transcribe:*'
+          PolicyName: JobCompleteLambdaPolicy
+
+  S3JobCompletionLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: jobcomplete.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt 'JobCompleteLambdaRole.Arn'
+      Timeout: 300
+      MemorySize: 1024
+      Code:
+        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
+        S3Key: !Join
+          - ''
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<INDEXER_ZIPFILE>'
+      Environment:
+        Variables:
+          INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+          DS_ID: !GetAtt KendraMediaDS.Id
+          MEDIA_FILE_TABLE: !Ref MediaDynamoTable
+          STACK_NAME: !Ref AWS::StackName
+
   TrancriptionJobCompleteEvent:
     Type: AWS::Events::Rule
     Properties:

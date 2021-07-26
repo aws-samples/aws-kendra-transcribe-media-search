@@ -12,14 +12,11 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # Environment variables
-MEDIA_BUCKET = os.environ['MEDIA_BUCKET']
-MEDIA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
-METADATA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
+
 INDEX_ID = os.environ['INDEX_ID']
 DS_ID = os.environ['DS_ID']
 STACK_NAME = os.environ['STACK_NAME']
 MEDIA_FILE_TABLE = os.environ['MEDIA_FILE_TABLE']
-TRANSCRIBE_ROLE = os.environ['TRANSCRIBE_ROLE']
 
 # AWS clients
 S3 = boto3.client('s3')
@@ -29,17 +26,23 @@ DYNAMODB = boto3.resource('dynamodb')
 TABLE = DYNAMODB.Table(MEDIA_FILE_TABLE)
 
 # Common functions
-def start_kendra_sync_job(dsId, indexId):
-    logger.info(f"start_kendra_sync_job(dsId={dsId}, indexId={indexId})")
-    # If all jobs are done ensure sync job is stopped.
-    stop_kendra_sync_job_when_all_done(dsId=DS_ID, indexId=INDEX_ID)
+
+def is_kendra_sync_running(dsId, indexId):
     # Check if sync job is still running
     resp = KENDRA.list_data_source_sync_jobs(Id=dsId, IndexId=indexId)
     if ('History' in resp):
         for h in resp['History']:
             if (h['Status'] in ['SYNCING', 'SYNCING_INDEXING']):
-                logger.info(f"data source sync running - state: {h['Status']}")
-                return None
+                return h['Status']
+    return False
+                
+def start_kendra_sync_job(dsId, indexId):
+    logger.info(f"start_kendra_sync_job(dsId={dsId}, indexId={indexId})")
+    # If all jobs are done ensure sync job is stopped.
+    stop_kendra_sync_job_when_all_done(dsId=dsId, indexId=indexId)
+    # Check if sync job is still running
+    if is_kendra_sync_running(dsId, indexId):
+        return None
     # No running sync job - we will start one.
     logger.info(f"start data source sync job")
     response = KENDRA.start_data_source_sync_job(Id=dsId, IndexId=indexId)
@@ -56,11 +59,25 @@ def stop_kendra_sync_job_when_all_done(dsId, indexId):
     if (response['Count'] == 0):
         #All DONE
         logger.info("No media files currently being transcribed. Stop Data Source Sync.")
-        logger.info(f"Stopping Data Source sync job for data source {dsId}")
+        logger.info(f"KENDRA.stop_data_source_sync_job(Id={dsId}, IndexId={indexId})")
         KENDRA.stop_data_source_sync_job(Id=dsId, IndexId=indexId)
-        time.sleep(10)  # wait a few seconds for sync job to stop
+        i = 0
+        while True: 
+            kendra_sync_running = is_kendra_sync_running(dsId, indexId)
+            if not kendra_sync_running: 
+                logger.info(f"Data Source Sync is stopped.")
+                break
+            if kendra_sync_running == "SYNCING_INDEXING":
+                logger.info(f"Data Source Sync is in SYNCING_INDEXING state.. unable to stop from this state.")
+                break
+            if i >= 10:
+                logger.info(f"Data Source Sync is in state {kendra_sync_running}. Timed out waiting for it to stop.")
+                break
+            logger.info(f"waiting 5sec for sync job to stop")
+            time.sleep(5)  # wait a few seconds for sync job to stop
+            i += 1
     else:
-        logger.info(f"Wait for remaining Transcribe jobs to complete - count: {response['Count']}")
+        logger.info(f"Can't stop Data Source since Transcribe jobs are still running - count: {response['Count']}")
     return True
 
 
@@ -193,6 +210,17 @@ def put_statusTableItem(id, lastModified=None, size_bytes=None, duration_secs=No
             'crawler_state': crawler_state
         }
     )
+    return response
+    
+def get_transcription_job(job_name):
+    logger.info(f"get_transcription_job({job_name})")
+    try:
+        response = TRANSCRIBE.get_transcription_job(TranscriptionJobName=job_name)
+    except Exception as e:
+        logger.error("Exception getting transcription job: " + job_name)
+        logger.error(e)
+        return None
+    logger.info("get_transcription_job response: " + json.dumps(response, default=str))
     return response
 
 if __name__ == "__main__":

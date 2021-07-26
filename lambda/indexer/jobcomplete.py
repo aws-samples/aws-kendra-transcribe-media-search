@@ -5,66 +5,155 @@ import os
 import json
 import textwrap
 import urllib
+import dateutil.parser
 
 from common import logger
 from common import INDEX_ID, DS_ID
 from common import S3, TRANSCRIBE, KENDRA
 from common import stop_kendra_sync_job_when_all_done
 from common import get_file_status, put_file_status
+from common import get_transcription_job
 
-def parse_s3url(s3url):
-    r = urllib.parse.urlparse(s3url, allow_fragments=False)
-    bucket = r.netloc
-    key = r.path
-    file_name = key.split("/")[-1]
-    return [bucket, key, file_name]
-
-def put_document(dsId, indexId, s3url, text):
-    logger.info(f"put_document(dsId={dsId}, indexId={indexId}, s3url={s3url}, text='{text[0:100]}...')")
-    bucket, key, file_name = parse_s3url(s3url)
+def get_bucket_region(bucket):
     # get bucket location.. buckets in us-east-1 return None, otherwise region is identified in LocationConstraint
     try:
         region = S3.get_bucket_location(Bucket=bucket)["LocationConstraint"] or 'us-east-1' 
     except Exception as e:
         logger.info(f"Unable to retrieve bucket region (bucket owned by another account?).. defaulting to us-east-1. Bucket: {bucket} - Message: " + str(e))
         region = 'us-east-1'
-    file_status = get_file_status(s3url)
-    if file_status:
-        documents = [ 
-            {
-                "Id": s3url,
-                "Title": file_name,
-                "Attributes": [
-                    {
-                        "Key": "_data_source_id",
-                        "Value": {
-                            "StringValue": dsId
-                        }
-                    },
-                    {
-                        "Key": "_data_source_sync_job_execution_id",
-                        "Value": {
-                            "StringValue": file_status['sync_job_id']
-                        }
-                    },
-                    {
-                        "Key": "_source_uri",
-                        "Value": {
-                            "StringValue": "https://s3." + region + ".amazonaws.com/" + bucket + key
+    return region
+    
+def parse_s3url(s3url):
+    r = urllib.parse.urlparse(s3url, allow_fragments=False)
+    bucket = r.netloc
+    key = r.path.lstrip("/")
+    file_name = key.split("/")[-1]
+    return [bucket, key, file_name]
+
+def get_metadata(metadata_url):
+    if metadata_url:
+        bucket, key, file_name = parse_s3url(metadata_url)
+        logger.info(f"{bucket}, {key}, {file_name}")
+        result = S3.get_object(Bucket=bucket, Key=key)
+        data = result["Body"].read().decode()
+        try:
+            metadata = json.loads(data)
+        except Exception as e:
+            logger.error("Metadata is not valid JSON - ignoring: " + str(e))
+            metadata={}
+    else:
+        metadata = {}
+    logger.info(f"Metadata: {metadata}")
+    return metadata
+    
+def iso8601_datetime(value):
+    try:
+        dt = dateutil.parser.isoparse(value)
+    except Exception as e:
+        return False
+    return dt
+
+def get_kendra_type_and_value(key, value):
+    kendra_type = ""
+    kendra_value = value
+    if type(value) is int:
+        kendra_type = "LongValue"
+    elif type(value) is list:
+        kendra_type = "StringListValue"
+        kendra_value = list(map(lambda x: str(x), value))
+    elif type(value) is str:
+        kendra_type = "StringValue"
+        if iso8601_datetime(value):
+            kendra_type = "DateValue"
+            kendra_value = iso8601_datetime(value)
+    else:
+        logger.error(f"Metadata attribute {key} has invalid type {type(value)} - convert to string")
+        kendra_type = "StringValue"
+        kendra_value = str(value)
+    return [kendra_type, kendra_value]
+    
+def get_metadata_attributes(metadata):
+    kendra_metadata_attributes=[]
+    meta_attributes = metadata.get("Attributes")
+    if meta_attributes:
+        if type(meta_attributes) is dict:
+            for key, value in meta_attributes.items():
+                reserved_attributes = ["_data_source_id", "_data_source_sync_job_execution_id", "_source_uri"]
+                if key not in reserved_attributes:
+                    kendra_type, kendra_value = get_kendra_type_and_value(key, value)
+                    kendra_attr = {
+                        'Key': key,
+                        'Value': {
+                            kendra_type: kendra_value
                         }
                     }
-                ],
-                "Blob": text
+                    kendra_metadata_attributes.append(kendra_attr)
+                else:
+                    logger.error(f"Metadata may not override reserved attribute: {key}")
+        else:
+            logger.error(f"Metadata 'Attributes' is not dict type: {type(meta_attributes)}")
+    else:
+        logger.info(f"Metadata does not contain 'Attributes'")
+    return kendra_metadata_attributes
+    
+def get_document(dsId, indexId, s3url, item, text):
+    bucket, key, file_name = parse_s3url(s3url)
+    region = get_bucket_region(bucket)
+    document = {
+        "Id": s3url,
+        "Title": file_name,
+        "Attributes": [
+            {
+                "Key": "_data_source_id",
+                "Value": {
+                    "StringValue": dsId
+                }
+            },
+            {
+                "Key": "_data_source_sync_job_execution_id",
+                "Value": {
+                    "StringValue": item['sync_job_id']
+                }
+            },
+            {
+                "Key": "_source_uri",
+                "Value": {
+                    "StringValue": f"https://s3.{region}.amazonaws.com/{bucket}/{key}"
+                }
             }
-        ]
-        logger.info("KENDRA.batch_put_document: " + json.dumps(documents)[0:1000] + "...")
-        result = KENDRA.batch_put_document(
-            IndexId = indexId,
-            Documents = documents
-        )
-        if 'FailedDocuments' in result and len(result['FailedDocuments']) > 0:
-            logger.error("Failed to index document: " + result['FailedDocuments'][0]['ErrorMessage'])
-        logger.info("result: " + json.dumps(result))
+        ],
+        "Blob": text
+    }
+    # merge metadata
+    metadata = get_metadata(item['metadata_url'])
+    if metadata.get("DocumentId"):
+        logger.error(f"Metadata may not override: DocumentId")
+    if metadata.get("ContentType"):
+        logger.error(f"Metadata may not override: ContentType") 
+    if metadata.get("Title"):
+        logger.info(f"Set 'Title' to: \"{metadata['Title']}\"")  
+        document['Title'] = metadata['Title']
+    if metadata.get("Attributes"):
+        logger.info(f"Set 'Attributes'")
+        metadata_attributes = get_metadata_attributes(metadata)
+        document["Attributes"] += metadata_attributes
+    if metadata.get("AccessControlList"):
+        logger.info(f"Set 'AccessControlList'")
+        document["AccessControlList"] = metadata['AccessControlList']
+    return document
+    
+def put_document(dsId, indexId, s3url, item, text):
+    logger.info(f"put_document(dsId={dsId}, indexId={indexId}, s3url={s3url}, text='{text[0:100]}...')")
+    document = get_document(dsId, indexId, s3url, item, text)
+    documents = [document]
+    logger.info("KENDRA.batch_put_document: " + json.dumps(documents, default=str)[0:1000] + "...")
+    result = KENDRA.batch_put_document(
+        IndexId = indexId,
+        Documents = documents
+    )
+    if 'FailedDocuments' in result and len(result['FailedDocuments']) > 0:
+        logger.error("Failed to index document: " + result['FailedDocuments'][0]['ErrorMessage'])
+    logger.info("result: " + json.dumps(result))
     return True
 
 def prepare_transcript(transcript_uri):
@@ -91,17 +180,6 @@ def prepare_transcript(transcript_uri):
         txt = txt + " " + sentence + " "
     out = textwrap.fill(txt, width=70)
     return [duration_secs, out]
-
-def get_transcription_job(job_name):
-    logger.info(f"get_transcription_job({job_name})")
-    try:
-        response = TRANSCRIBE.get_transcription_job(TranscriptionJobName=job_name)
-    except Exception as e:
-        logger.error("Exception getting transription job: " + job_name)
-        logger.error(e)
-        return None
-    logger.info("get_transcription_job response: " + json.dumps(response, default=str))
-    return response
 
 def get_transcription_job_duration(transcription_job):
     start_time = transcription_job['TranscriptionJob']['StartTime']
@@ -155,7 +233,7 @@ def lambda_handler(event, context):
                 logger.info("** Process transcription and prepare for indexing **")
                 [duration_secs, text] = prepare_transcript(transcript_uri)
                 logger.info("** Index transcription document in Kendra **")
-                put_document(dsId=DS_ID, indexId=INDEX_ID, s3url=media_s3url, text=text)
+                put_document(dsId=DS_ID, indexId=INDEX_ID, s3url=media_s3url, item=item, text=text)
                 # Update sync_state
                 put_file_status(
                     media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=duration_secs, status=item['status'], 
@@ -177,4 +255,8 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
-    lambda_handler({"detail":{"TranscriptionJobName":"testjob"}},{})
+    #lambda_handler({"detail":{"TranscriptionJobName":"testjob"}},{})
+    metadata_invalid=get_metadata("s3://bobs-recordings/metadatatest/f1.mp4.metadata.json")
+    metadata=get_metadata("s3://bobs-recordings/metadatatest/f2.mp4.metadata.json")
+    attr=get_metadata_attributes(metadata)
+    logger.info(attr)
