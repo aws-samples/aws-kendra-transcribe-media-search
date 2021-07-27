@@ -175,6 +175,7 @@ Resources:
           MEDIA_BUCKET: !Ref MediaBucket
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
           METADATA_FOLDER_PREFIX: !Ref MetadataFolderPrefix
+          MAKE_CATEGORY_FACETABLE: !Ref MakeCategoryFacetable
           MEDIA_FILE_TABLE: !Ref MediaDynamoTable
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMediaDS.Id
@@ -319,6 +320,11 @@ Parameters:
     Type: String
     Default: ''
     Description: '(Optional) Prefix for parallel metadata folder in the media bucket (e.g. path/to/files/)'
+  MakeCategoryFacetable:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: 'To use facets to select results by media type make _category attribute facetable, displayable and searchable'
   SyncSchedule:
     Type: String
     Default: '24 hours'
