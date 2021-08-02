@@ -4,7 +4,6 @@
 import os
 import json
 import textwrap
-import urllib
 import dateutil.parser
 
 from common import logger
@@ -13,6 +12,7 @@ from common import S3, TRANSCRIBE, KENDRA
 from common import stop_kendra_sync_job_when_all_done
 from common import get_file_status, put_file_status
 from common import get_transcription_job
+from common import parse_s3url, get_s3jsondata
 
 def get_bucket_region(bucket):
     # get bucket location.. buckets in us-east-1 return None, otherwise region is identified in LocationConstraint
@@ -23,29 +23,7 @@ def get_bucket_region(bucket):
         region = 'us-east-1'
     return region
     
-def parse_s3url(s3url):
-    r = urllib.parse.urlparse(s3url, allow_fragments=False)
-    bucket = r.netloc
-    key = r.path.lstrip("/")
-    file_name = key.split("/")[-1]
-    return [bucket, key, file_name]
 
-def get_metadata(metadata_url):
-    if metadata_url:
-        bucket, key, file_name = parse_s3url(metadata_url)
-        logger.info(f"{bucket}, {key}, {file_name}")
-        result = S3.get_object(Bucket=bucket, Key=key)
-        data = result["Body"].read().decode()
-        try:
-            metadata = json.loads(data)
-        except Exception as e:
-            logger.error("Metadata is not valid JSON - ignoring: " + str(e))
-            metadata={}
-    else:
-        metadata = {}
-    logger.info(f"Metadata: {metadata}")
-    return metadata
-    
 def iso8601_datetime(value):
     try:
         dt = dateutil.parser.isoparse(value)
@@ -125,7 +103,7 @@ def get_document(dsId, indexId, s3url, item, text):
         "Blob": text
     }
     # merge metadata
-    metadata = get_metadata(item['metadata_url'])
+    metadata = get_s3jsondata(item['metadata_url'])
     if metadata.get("DocumentId"):
         logger.error(f"Metadata may not override: DocumentId")
     if metadata.get("ContentType"):
@@ -215,6 +193,7 @@ def lambda_handler(event, context):
             put_file_status(
                 media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'],
                 metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
+                transcribeopts_url=item['transcribeopts_url'], transcribeopts_lastModified=item['transcribeopts_lastModified'],
                 transcribe_job_id=item['transcribe_job_id'], transcribe_state="FAILED", transcribe_secs=None,
                 sync_job_id=item['sync_job_id'], sync_state="NOT_SYNCED"
                 )            
@@ -226,6 +205,7 @@ def lambda_handler(event, context):
             put_file_status(
                 media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
                 metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
+                transcribeopts_url=item['transcribeopts_url'], transcribeopts_lastModified=item['transcribeopts_lastModified'],
                 transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                 sync_job_id=item['sync_job_id'], sync_state=item['sync_state']
                 )
@@ -238,6 +218,7 @@ def lambda_handler(event, context):
                 put_file_status(
                     media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=duration_secs, status=item['status'], 
                     metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
+                    transcribeopts_url=item['transcribeopts_url'], transcribeopts_lastModified=item['transcribeopts_lastModified'],
                     transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs,
                     sync_job_id=item['sync_job_id'], sync_state="DONE"
                     )
@@ -246,6 +227,7 @@ def lambda_handler(event, context):
                 put_file_status(
                     media_s3url, lastModified=item['lastModified'], size_bytes=item['size_bytes'], duration_secs=None, status=item['status'], 
                     metadata_url=item['metadata_url'], metadata_lastModified=item['metadata_lastModified'],
+                    transcribeopts_url=item['transcribeopts_url'], transcribeopts_lastModified=item['transcribeopts_lastModified'],
                     transcribe_job_id=item['transcribe_job_id'], transcribe_state="DONE", transcribe_secs=transcribe_secs, 
                     sync_job_id=item['sync_job_id'], sync_state="FAILED"
                     )
@@ -256,7 +238,7 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
     #lambda_handler({"detail":{"TranscriptionJobName":"testjob"}},{})
-    metadata_invalid=get_metadata("s3://bobs-recordings/metadatatest/f1.mp4.metadata.json")
-    metadata=get_metadata("s3://bobs-recordings/metadatatest/f2.mp4.metadata.json")
+    metadata_invalid=get_s3jsondata("s3://bobs-recordings/metadatatest/f1.mp4.metadata.json")
+    metadata=get_s3jsondata("s3://bobs-recordings/metadatatest/f2.mp4.metadata.json")
     attr=get_metadata_attributes(metadata)
     logger.info(attr)

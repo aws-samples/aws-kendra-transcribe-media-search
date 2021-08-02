@@ -5,6 +5,7 @@ import os
 import boto3
 import json
 import time
+import urllib
 from boto3.dynamodb.conditions import Key, Attr
 
 import logging
@@ -26,6 +27,30 @@ DYNAMODB = boto3.resource('dynamodb')
 TABLE = DYNAMODB.Table(MEDIA_FILE_TABLE)
 
 # Common functions
+
+def parse_s3url(s3url):
+    r = urllib.parse.urlparse(s3url, allow_fragments=False)
+    bucket = r.netloc
+    key = r.path.lstrip("/")
+    file_name = key.split("/")[-1]
+    return [bucket, key, file_name]
+    
+def get_s3jsondata(s3json_url):
+    if s3json_url:
+        bucket, key, file_name = parse_s3url(s3json_url)
+        logger.info(f"{bucket}, {key}, {file_name}")
+        result = S3.get_object(Bucket=bucket, Key=key)
+        data = result["Body"].read().decode()
+        try:
+            dict = json.loads(data)
+        except Exception as e:
+            logger.error("File content is not valid JSON - ignoring: " + str(e))
+            dict={}
+    else:
+        dict = {}
+    logger.info(f"JSON data: {dict}")
+    return dict
+
 
 def is_kendra_sync_running(dsId, indexId):
     # Check if sync job is still running
@@ -186,13 +211,14 @@ def put_crawler_state(name, status):
     
 def put_file_status(s3url, lastModified, size_bytes, duration_secs, status,
                     metadata_url, metadata_lastModified,
+                    transcribeopts_url, transcribeopts_lastModified,
                     transcribe_job_id, transcribe_state, transcribe_secs, 
                     sync_job_id, sync_state):
-    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, size_bytes={size_bytes}, duration_secs={duration_secs}, status={status}, metadata_url={metadata_url}, metadata_lastModified={metadata_lastModified}, transcribe_job_id={transcribe_job_id}, transcribe_state={transcribe_state}, transcribe_secs={transcribe_secs}, sync_job_id={sync_job_id}, sync_state={sync_state})")
-    return put_statusTableItem(s3url, lastModified, size_bytes, duration_secs, status, metadata_url, metadata_lastModified, transcribe_job_id, transcribe_state, transcribe_secs, sync_job_id, sync_state)
+    logger.info(f"put_file_status({s3url}, lastModified={lastModified}, size_bytes={size_bytes}, duration_secs={duration_secs}, status={status}, metadata_url={metadata_url}, metadata_lastModified={metadata_lastModified}, transcribeopts_url={transcribeopts_url}, transcribeopts_lastModified={transcribeopts_lastModified}, transcribe_job_id={transcribe_job_id}, transcribe_state={transcribe_state}, transcribe_secs={transcribe_secs}, sync_job_id={sync_job_id}, sync_state={sync_state})")
+    return put_statusTableItem(s3url, lastModified, size_bytes, duration_secs, status, metadata_url, metadata_lastModified, transcribeopts_url, transcribeopts_lastModified, transcribe_job_id, transcribe_state, transcribe_secs, sync_job_id, sync_state)
 
 # Currently use same DynamoDB table to track status of indexer (id=stackname) as well as each S3 media file (id=s3url)
-def put_statusTableItem(id, lastModified=None, size_bytes=None, duration_secs=None, status=None, metadata_url=None, metadata_lastModified=None, transcribe_job_id=None, transcribe_state=None, transcribe_secs=None, sync_job_id=None, sync_state=None, crawler_state=None):
+def put_statusTableItem(id, lastModified=None, size_bytes=None, duration_secs=None, status=None, metadata_url=None, metadata_lastModified=None, transcribeopts_url=None, transcribeopts_lastModified=None, transcribe_job_id=None, transcribe_state=None, transcribe_secs=None, sync_job_id=None, sync_state=None, crawler_state=None):
     response = TABLE.put_item(
        Item={
             'id': id,
@@ -202,6 +228,8 @@ def put_statusTableItem(id, lastModified=None, size_bytes=None, duration_secs=No
             'status': status,
             'metadata_url': metadata_url,
             'metadata_lastModified': metadata_lastModified,
+            'transcribeopts_url': transcribeopts_url,
+            'transcribeopts_lastModified': transcribeopts_lastModified,
             'transcribe_job_id': transcribe_job_id,
             'transcribe_state': transcribe_state,
             'transcribe_secs': transcribe_secs,
