@@ -321,18 +321,15 @@ Parameters:
     Type: String
     Default: ''
     Description: '(Optional) Prefix for parallel metadata folder in the media bucket (e.g. path/to/files/)'
-<<<<<<< HEAD
   TranscribeOptsFolderPrefix:
     Type: String
     Default: ''
     Description: '(Optional) Prefix for parallel transcribe options folder in the media bucket (e.g. path/to/files/)'
-=======
   MakeCategoryFacetable:
     Type: String
     Default: 'true'
     AllowedValues: ['true', 'false']
     Description: 'To use facets to select results by media type make _category attribute facetable, displayable and searchable'
->>>>>>> dev-branch
   SyncSchedule:
     Type: String
     Default: '24 hours'
