@@ -13,7 +13,7 @@ SUPPORTED_MEDIA_TYPES = ["mp3","mp4","wav","flac","ogg","amr","webm"]
 from common import logger
 from common import INDEX_ID, DS_ID, STACK_NAME
 from common import S3, TRANSCRIBE
-from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions
+from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions, make_category_facetable
 from common import get_crawler_state, put_crawler_state, get_file_status, put_file_status
 from common import get_transcription_job
 from common import parse_s3url, get_s3jsondata
@@ -21,7 +21,11 @@ from common import parse_s3url, get_s3jsondata
 MEDIA_BUCKET = os.environ['MEDIA_BUCKET']
 MEDIA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
 METADATA_FOLDER_PREFIX = os.environ['METADATA_FOLDER_PREFIX']
+<<<<<<< HEAD
 TRANSCRIBEOPTS_FOLDER_PREFIX = os.environ['TRANSCRIBEOPTS_FOLDER_PREFIX']
+=======
+MAKE_CATEGORY_FACETABLE = os.environ['MAKE_CATEGORY_FACETABLE']
+>>>>>>> dev-branch
 JOBCOMPLETE_FUNCTION = os.environ['JOBCOMPLETE_FUNCTION']
 TRANSCRIBE_ROLE = os.environ['TRANSCRIBE_ROLE']
 LAMBDA = boto3.client('lambda')
@@ -190,8 +194,11 @@ def get_metadata_ref_file_key(s3key, media_prefix, metadata_prefix):
         # metadata in media folder
         ref_key = s3key.replace(".metadata.json","")
     else:
-        # metadata in parallel folder
-        ref_key = s3key.replace(".metadata.json","").replace(metadata_prefix,media_prefix)
+        # metadata in parallel metadata folder
+        # path of metadata file is <metadata_prefix>/<media_prefix>
+        # i.e. metadata file path is parallel inside the <metadata_prefix> to be consistent with s3 datasource connector
+        #ref_key = s3key.replace(".metadata.json","").replace(metadata_prefix,media_prefix)
+        ref_key = s3key.replace(".metadata.json","").replace(metadata_prefix,"")
     return ref_key
 
 def get_transcribeopts_ref_file_key(s3key, media_prefix, transcribeopts_prefix):
@@ -201,7 +208,7 @@ def get_transcribeopts_ref_file_key(s3key, media_prefix, transcribeopts_prefix):
         ref_key = s3key.replace(".transcribeopts.json","")
     else:
         # transcribeopts in parallel folder
-        ref_key = s3key.replace(".transcribeopts.json","").replace(transcribeopts_prefix,media_prefix)
+        ref_key = s3key.replace(".transcribeopts.json","").replace(transcribeopts_prefix,"")
     return ref_key
 
 def list_s3_objects(bucketname, media_prefix, metadata_prefix, transcribeopts_prefix):
@@ -292,6 +299,10 @@ def lambda_handler(event, context):
             logger.info("Previous crawler invocation is running. Exiting")
             return exit_status(event, context, cfnresponse.SUCCESS)
             
+    #Make _category facetable if needed
+    if (MAKE_CATEGORY_FACETABLE == 'true'):
+        logger.info("Make _catetory facetable")
+        make_category_facetable(indexId=INDEX_ID)
     # Start crawler, and set status in DynamoDB table
     logger.info("** Start crawler **")
     kendra_sync_job_id = start_kendra_sync_job(dsId=DS_ID, indexId=INDEX_ID)

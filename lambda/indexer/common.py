@@ -52,6 +52,22 @@ def get_s3jsondata(s3json_url):
     return dict
 
 
+def make_category_facetable(indexId):
+    logger.info(f"make_file_type_facetable(indexId={indexId})")
+    resp = KENDRA.update_index(Id=indexId, 
+               DocumentMetadataConfigurationUpdates=[{
+                   'Name': '_category',
+                   'Type': 'STRING_VALUE',
+                   'Search': {
+                       'Facetable': True,
+                       'Searchable': True,
+                       'Displayable': True,
+                       'Sortable': True
+                   }
+               }
+           ])
+    logger.info(f"response:" + json.dumps(resp))
+    
 def is_kendra_sync_running(dsId, indexId):
     # Check if sync job is still running
     resp = KENDRA.list_data_source_sync_jobs(Id=dsId, IndexId=indexId)
