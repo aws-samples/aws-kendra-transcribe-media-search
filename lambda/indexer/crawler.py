@@ -21,11 +21,8 @@ from common import parse_s3url, get_s3jsondata
 MEDIA_BUCKET = os.environ['MEDIA_BUCKET']
 MEDIA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
 METADATA_FOLDER_PREFIX = os.environ['METADATA_FOLDER_PREFIX']
-<<<<<<< HEAD
 TRANSCRIBEOPTS_FOLDER_PREFIX = os.environ['TRANSCRIBEOPTS_FOLDER_PREFIX']
-=======
 MAKE_CATEGORY_FACETABLE = os.environ['MAKE_CATEGORY_FACETABLE']
->>>>>>> dev-branch
 JOBCOMPLETE_FUNCTION = os.environ['JOBCOMPLETE_FUNCTION']
 TRANSCRIBE_ROLE = os.environ['TRANSCRIBE_ROLE']
 LAMBDA = boto3.client('lambda')
