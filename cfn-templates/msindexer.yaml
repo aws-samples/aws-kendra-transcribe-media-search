@@ -316,20 +316,20 @@ Parameters:
   MediaFolderPrefix:
     Type: String
     Default: '<SAMPLES_PREFIX>'
-    Description: 'Prefix for media folder in the media bucket (e.g. path/to/files/)'
+    Description: 'Prefix for media folder in the media bucket ( e.g. path/to/files/ )'
   MetadataFolderPrefix:
     Type: String
     Default: ''
-    Description: '(Optional) Prefix for parallel Kendra metadata folders in the media bucket (e.g. metadata/path/to/files/).'
+    Description: '(Optional) Metadata files prefix folder location ( e.g. metadata/ ). If a media file is stored at s3://bucket/path/to/files/file2.mp3, and the metadata prefix folder location is metadata/, the metadata file location is s3://bucket/metadata/path/to/files/file2.mp3.metadata.json. By default, there is no metadata file prefix folder, and metadata files are stored in the same folder as the media files. See: See https://github.com/aws-samples/aws-kendra-transcribe-media-search/blob/main/README.md##add-kendra-metadata.'
   OptionsFolderPrefix:
     Type: String
     Default: ''
-    Description: '(Optional) Prefix for parallel Transcribe options folders in the media bucket (e.g. transcribeopts/path/to/files).'
+    Description: '(Optional) Transcribe options files prefix folder location ( e.g. transcribeopts/ ). If a media file is stored at s3://bucket/path/to/files/file2.mp3, and the options prefix folder location is transcribeopts/, the metadata file location is s3://bucket/transcribeopts/path/to/files/file2.mp3.transcribeopts.json. By default, there is no options file prefix folder, and Transcribe options files are stored in the same folder as the media files. See https://github.com/aws-samples/aws-kendra-transcribe-media-search/blob/main/README.md#add-transcribe-options'
   MakeCategoryFacetable:
     Type: String
     Default: 'true'
     AllowedValues: ['true', 'false']
-    Description: 'To use facets to select results by media type make _category attribute facetable, displayable and searchable'
+    Description: 'Set true to make the Kendra index attribute "_category" facetable, displayable and searchable'
   SyncSchedule:
     Type: String
     Default: '24 hours'
@@ -340,11 +340,29 @@ Parameters:
       - '24 hours'
       - '48 hours'
       - '72 hours'
-    Description: 'Frequency to synchronize the S3 bucket with the Kendra index - 6 hours, 12 hours, 24 hours. The default is 24 hours'
+    Description: 'Frequency to synchronize the S3 bucket with the Kendra index. The default is 24 hours'
   ExistingIndexId:
     Default: ''
     Type: String
     Description: "Leave this empty to create a new index or provide the index *id* (not name) of the existing Kendra index to be used"
+
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                default: MediaSearch Indexer parameters
+              Parameters:
+                  - ExistingIndexId
+                  - MediaBucket
+                  - MediaFolderPrefix
+                  - SyncSchedule
+            - Label:
+                default: Kendra Metadata and Transcribe options parameters
+              Parameters:
+                  - MetadataFolderPrefix
+                  - OptionsFolderPrefix
+
+
     
 Conditions:
   CreateIndex: !Equals 
