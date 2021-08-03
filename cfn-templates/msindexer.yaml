@@ -320,11 +320,11 @@ Parameters:
   MetadataFolderPrefix:
     Type: String
     Default: ''
-    Description: '(Optional) Prefix for parallel Kendra metadata folder in the media bucket (e.g. path/to/files/)'
+    Description: '(Optional) Prefix for parallel Kendra metadata folders in the media bucket (e.g. metadata/path/to/files/).'
   OptionsFolderPrefix:
     Type: String
     Default: ''
-    Description: '(Optional) Prefix for parallel Transcribe options folder in the media bucket (e.g. path/to/files/)'
+    Description: '(Optional) Prefix for parallel Transcribe options folders in the media bucket (e.g. transcribeopts/path/to/files).'
   MakeCategoryFacetable:
     Type: String
     Default: 'true'
