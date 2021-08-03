@@ -16,7 +16,7 @@
 # export AWS_DEFAULT_REGION=eu-west-1
 ##############################################################################################
 
-USAGE="$0 cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix]"
+USAGE="$0 cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]"
 
 BUCKET=$1
 [ -z "$BUCKET" ] && echo "Cfn bucket name is required parameter. Usage $USAGE" && exit 1
@@ -26,6 +26,8 @@ PREFIX=$2
 
 SAMPLES_BUCKET=$3
 SAMPLES_PREFIX=$4
+METADATA_PREFIX=$5
+OPTIONS_PREFIX=$6
 
 # Add trailing slash to prefix if needed
 [[ "${PREFIX}" != */ ]] && PREFIX="${PREFIX}/"
@@ -77,6 +79,8 @@ echo "   <FINDER_ZIPFILE> with zipfile: $finderzip"
 echo "   <REGION> with region: $region"
 [ -z "$SAMPLES_BUCKET" ] || echo "   <SAMPLES_BUCKET> with bucket name: $SAMPLES_BUCKET"
 [ -z "$SAMPLES_PREFIX" ] || echo "   <SAMPLES_PREFIX> with prefix: $SAMPLES_PREFIX"
+[ -z "$METADATA_PREFIX" ] || echo "   <METADATA_PREFIX> with prefix: $METADATA_PREFIX"
+[ -z "$OPTIONS_PREFIX" ] || echo "   <OPTIONS_PREFIX> with prefix: $OPTIONS_PREFIX"
 for template in msindexer.yaml msfinder.yaml
 do
    echo preprocessing $template
@@ -88,6 +92,8 @@ do
     sed -e "s%<FINDER_ZIPFILE>%$finderzip%g" |
     sed -e "s%<SAMPLES_BUCKET>%$SAMPLES_BUCKET%g" |
     sed -e "s%<SAMPLES_PREFIX>%$SAMPLES_PREFIX%g" |
+    sed -e "s%<METADATA_PREFIX>%$METADATA_PREFIX%g" |
+    sed -e "s%<OPTIONS_PREFIX>%$OPTIONS_PREFIX%g" |
     sed -e "s%<REGION>%$region%g" > $tmpdir/$template
 done
 

@@ -85,14 +85,16 @@ Prerequisite: You must already have the [AWS CLI](https://docs.aws.amazon.com/cl
 To deploy to non-default region, set environment variable `AWS_DEFAULT_REGION` to a region supported by Amazon Kendra and Amazon Transcribe. See: [AWS Regional Services](https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/) 
 E.g. to deploy in Ireland run `export AWS_DEFAULT_REGION=eu-west-1` before running the publish script.
 
-Run the script with 4 parameters:
+Run the script with up to 6 parameters:
 ```
-./publish.sh cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix]
+./publish.sh cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]
 
 - cfn_bucket: name of S3 bucket to deploy CloudFormation templates and code artifacts. if bucket does not exist it will be created.
 - cfn_prefix: artifacts will be copied to the path specified by this prefix (path/to/artifacts/)
 - dflt_media_bucket: (Optional) sets the default media bucket in the template.. for example, use this default installations to index sample files in the bucket you provide. Must be in same region as cfn_bucket.
 - dflt_media_prefix: (Optional) default path to (sample) media files in the dflt_media_bucket
+- dflt_metadata_prefix: (Optional) default prefix for (sample) Kendra metadata files in the dflt_media_bucket
+- dflt_options_prefix: (Optional) default prefix for (sample) Transcribe options files in the dflt_media_bucket
 ```
 
 It builds code zipfiles and replaces the tokens in the templates to reflect the parameters you specify and the zipfile names, and copys templates and zipfiles to the cfn_bucket.

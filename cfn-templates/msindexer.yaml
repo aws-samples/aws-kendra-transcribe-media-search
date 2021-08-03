@@ -322,11 +322,11 @@ Parameters:
     Description: 'Prefix for media folder in the media bucket ( e.g. path/to/files/ )'
   MetadataFolderPrefix:
     Type: String
-    Default: ''
+    Default: '<METADATA_PREFIX>'
     Description: '(Optional) Metadata files prefix folder location ( e.g. metadata/ ). If a media file is stored at s3://bucket/path/to/files/file2.mp3, and the metadata prefix folder location is metadata/, the metadata file location is s3://bucket/metadata/path/to/files/file2.mp3.metadata.json. By default, there is no metadata file prefix folder, and metadata files are stored in the same folder as the media files. See: See https://github.com/aws-samples/aws-kendra-transcribe-media-search/blob/main/README.md#add-kendra-metadata'
   OptionsFolderPrefix:
     Type: String
-    Default: ''
+    Default: '<OPTIONS_PREFIX>'
     Description: '(Optional) Transcribe options files prefix folder location ( e.g. transcribeopts/ ). If a media file is stored at s3://bucket/path/to/files/file2.mp3, and the options prefix folder location is transcribeopts/, the metadata file location is s3://bucket/transcribeopts/path/to/files/file2.mp3.transcribeopts.json. By default, there is no options file prefix folder, and Transcribe options files are stored in the same folder as the media files. See https://github.com/aws-samples/aws-kendra-transcribe-media-search/blob/main/README.md#add-transcribe-options'
   MakeCategoryFacetable:
     Type: String
