@@ -304,8 +304,11 @@ Resources:
     Properties:
       ServiceToken: !GetAtt S3CrawlLambdaFunction.Arn
       TriggerDependencies:
+        - !Ref ExistingIndexId
         - !Ref MediaBucket
         - !Ref MediaFolderPrefix
+        - !Ref MetadataFolderPrefix
+        - !Ref OptionsFolderPrefix
         - '<INDEXER_ZIPFILE>'
     
 Parameters:
