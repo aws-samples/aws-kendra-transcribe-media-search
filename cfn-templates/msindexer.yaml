@@ -320,7 +320,7 @@ Parameters:
   MetadataFolderPrefix:
     Type: String
     Default: ''
-    Description: '(Optional) Metadata files prefix folder location ( e.g. metadata/ ). If a media file is stored at s3://bucket/path/to/files/file2.mp3, and the metadata prefix folder location is metadata/, the metadata file location is s3://bucket/metadata/path/to/files/file2.mp3.metadata.json. By default, there is no metadata file prefix folder, and metadata files are stored in the same folder as the media files. See: See https://github.com/aws-samples/aws-kendra-transcribe-media-search/blob/main/README.md##add-kendra-metadata.'
+    Description: '(Optional) Metadata files prefix folder location ( e.g. metadata/ ). If a media file is stored at s3://bucket/path/to/files/file2.mp3, and the metadata prefix folder location is metadata/, the metadata file location is s3://bucket/metadata/path/to/files/file2.mp3.metadata.json. By default, there is no metadata file prefix folder, and metadata files are stored in the same folder as the media files. See: See https://github.com/aws-samples/aws-kendra-transcribe-media-search/blob/main/README.md#add-kendra-metadata'
   OptionsFolderPrefix:
     Type: String
     Default: ''
