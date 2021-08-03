@@ -176,7 +176,7 @@ Resources:
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
           METADATA_FOLDER_PREFIX: !Ref MetadataFolderPrefix
           MAKE_CATEGORY_FACETABLE: !Ref MakeCategoryFacetable
-          TRANSCRIBEOPTS_FOLDER_PREFIX: Ref! OptionsFolderPrefix
+          TRANSCRIBEOPTS_FOLDER_PREFIX: !Ref OptionsFolderPrefix
           MEDIA_FILE_TABLE: !Ref MediaDynamoTable
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
           DS_ID: !GetAtt KendraMediaDS.Id
