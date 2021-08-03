@@ -66,7 +66,12 @@ The Indexer crawler and jobcomplete lambda function code is in the lambda direct
 
 ## Finder
 
-The Finder application is based on the Kendra sample search application, and is in the src directory. It is built during deployment as an Amplify Console application.
+The Finder application is based on the Kendra sample search application, and is in the src directory. It is built during deployment as an Amplify Console application. The initial application build and deployment takes about 10 minutes.  
+  
+If the application doesn’t open within 10-15 minutes after deploying the Finder stack, then you troubleshoot the problem: 
+- Open AWS Amplify in the AWS console
+- Choose the MS-Finder-App
+- Click on the failed step - Provision, Build, Deploy, or Verify. For example, choose `Build`, then `FrontEnd` to explore the application build logs and identify the problem. 
 
 
 ## CloudFormation Templates
