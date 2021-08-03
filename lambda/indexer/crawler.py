@@ -46,7 +46,7 @@ def get_transcribe_args(job_name, job_uri, role, transcribeopts_url):
         }
     }
     if transcribeopts_url:
-        logger.info("Merging Transcribe options data from: {transcribeopts_url}")
+        logger.info(f"Merging Transcribe options data from: {transcribeopts_url}")
         opts = get_s3jsondata(transcribeopts_url)
         for key, value in opts.items():
             if key in ['TranscriptionJobName', 'Media']:
@@ -118,7 +118,7 @@ def process_s3_media_object(crawlername, bucketname, s3url, s3object, s3metadata
                 transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None, 
                 sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
                 )
-    elif (lastModified != item['lastModified'] or transcribeopts_lastModified != item['transcribeopts_lastModified']):
+    elif (lastModified != item['lastModified'] or transcribeopts_lastModified != item.get('transcribeopts_lastModified')):
         logger.info("MODIFIED:" + s3url)
         job_name = restart_media_transcription(crawlername, s3url, role, transcribeopts_url)
         if job_name:
@@ -129,7 +129,7 @@ def process_s3_media_object(crawlername, bucketname, s3url, s3object, s3metadata
                 transcribe_job_id=job_name, transcribe_state="RUNNING", transcribe_secs=None,
                 sync_job_id=kendra_sync_job_id, sync_state="RUNNING"
                 )
-    elif (metadata_lastModified != item['metadata_lastModified']):
+    elif (metadata_lastModified != item.get('metadata_lastModified')):
         logger.info("METADATA_MODIFIED:" + s3url)
         if get_transcription_job(item['transcribe_job_id']):
             # reindex existing transcription with new metadata
@@ -194,7 +194,6 @@ def get_metadata_ref_file_key(s3key, media_prefix, metadata_prefix):
         # metadata in parallel metadata folder
         # path of metadata file is <metadata_prefix>/<media_prefix>
         # i.e. metadata file path is parallel inside the <metadata_prefix> to be consistent with s3 datasource connector
-        #ref_key = s3key.replace(".metadata.json","").replace(metadata_prefix,media_prefix)
         ref_key = s3key.replace(".metadata.json","").replace(metadata_prefix,"")
     return ref_key
 
@@ -204,7 +203,7 @@ def get_transcribeopts_ref_file_key(s3key, media_prefix, transcribeopts_prefix):
         # transcribeopts in media folder
         ref_key = s3key.replace(".transcribeopts.json","")
     else:
-        # transcribeopts in parallel folder
+        # transcribeopts in parallel folder.. follows same structure as kendra metadata
         ref_key = s3key.replace(".transcribeopts.json","").replace(transcribeopts_prefix,"")
     return ref_key
 
@@ -239,23 +238,23 @@ def list_s3_objects(bucketname, media_prefix, metadata_prefix, transcribeopts_pr
             logger.info(f"No files found in {bucketname}/{media_prefix}")
     # if media files were found, AND metadataprefix is defined, then find metadata files under metadataprefix
     if s3mediaobjects and metadata_prefix:
-        logger.info(f"Find metadata files under metadata_prefix: {metadata_prefix}")
+        logger.info(f"Find Kendra metadata files under metadata_prefix: {metadata_prefix}")
         pages = paginator.paginate(Bucket=bucketname, Prefix=metadata_prefix)
         for page in pages:
             if "Contents" in page:
                 for s3object in page["Contents"]:
                     if is_supported_metadata_file(s3object['Key']):
                         ref_media_key = get_metadata_ref_file_key(s3object['Key'], media_prefix, metadata_prefix)
-                        logger.info(f"Metadata file: {s3object['Key']}. References media file: {ref_media_key}")
+                        logger.info(f"Kendra metadata file: {s3object['Key']}. References media file: {ref_media_key}")
                         media_url = f"s3://{bucketname}/{ref_media_key}"
                         s3metadataobjects[media_url]=s3object
                     else:
-                        logger.info("not a metadatafile. Skipping: " + s3object['Key'])
+                        logger.info("not a Kendra metadatafile. Skipping: " + s3object['Key'])
             else:
                 logger.info(f"No metadata files found in {bucketname}/{metadata_prefix}")  
     # if media files were found, AND transcribeopts_prefix is defined, then find transcribe options files under transcribeopts_prefix
     if s3mediaobjects and transcribeopts_prefix:
-        logger.info(f"Find Transcripe options files under transcribeopts_prefix: {transcribeopts_prefix}")
+        logger.info(f"Find Transcribe job options files under transcribeopts_prefix: {transcribeopts_prefix}")
         pages = paginator.paginate(Bucket=bucketname, Prefix=transcribeopts_prefix)
         for page in pages:
             if "Contents" in page:
@@ -266,9 +265,9 @@ def list_s3_objects(bucketname, media_prefix, metadata_prefix, transcribeopts_pr
                         media_url = f"s3://{bucketname}/{ref_media_key}"
                         s3transcribeoptsobjects[media_url]=s3object
                     else:
-                        logger.info("not a transcribe options file. Skipping: " + s3object['Key'])
+                        logger.info("not a Transcribe options file. Skipping: " + s3object['Key'])
             else:
-                logger.info(f"No transcribe options files found in {bucketname}/{transcribeopts_prefix}")   
+                logger.info(f"No Transcribe options files found in {bucketname}/{transcribeopts_prefix}")   
     return [s3mediaobjects, s3metadataobjects, s3transcribeoptsobjects]
 
 def exit_status(event, context, status):
@@ -342,6 +341,4 @@ if __name__ == "__main__":
     import logging
     logging.basicConfig(level=logging.INFO)
     lambda_handler({},{})
-    
-    
-    
+
