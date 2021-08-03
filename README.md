@@ -51,6 +51,7 @@ Transcribe options files must contain valid JSON to provide one or more Transcri
                 "VocabularyName":"MyCustomVocab"
         }
 }
+```
 
 The values for `TranscriptionJobName` and `Media` are provided automatically by the crawler, and will not be overwritten by the options file.  
   
