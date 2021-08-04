@@ -268,12 +268,12 @@ export default class Search extends React.Component<SearchProps, SearchState> {
           try {
             var bucket = "";
             var key = "";
-            if (result.DocumentURI.search(/\/s3[.-](\w{2}-\w{4,9}-\d\.)?amazonaws\.com/) != -1) {
+            if (result.DocumentURI.search(/\/s3[.-](\w{2}-\w{4,9}-\d\.)?amazonaws\.com/) !== -1) {
               //bucket in path format
               bucket = result.DocumentURI.split('/')[3];
               key = result.DocumentURI.split('/').slice(4).join('/');
             }
-            if (result.DocumentURI.search(/\.s3[.-](\w{2}-\w{4,9}-\d\.)?amazonaws\.com/) != -1) {
+            if (result.DocumentURI.search(/\.s3[.-](\w{2}-\w{4,9}-\d\.)?amazonaws\.com/) !== -1) {
               //bucket in hostname format
               let hostname = result.DocumentURI.split("/")[2];
               bucket = hostname.split(".")[0];

@@ -1,5 +1,4 @@
 import React from "react";
-import Button from 'react-bootstrap/Button';
 import Search from "./search/Search";
 import { facetConfiguration } from "./search/configuration";
 import S3 from 'aws-sdk/clients/s3';
@@ -7,7 +6,6 @@ import AWS from 'aws-sdk';
 import aws_exports from './aws-exports';
 import Kendra from 'aws-sdk/clients/kendra';
 import Auth from '@aws-amplify/auth';
-import { AmplifyGreetings, AmplifyAuthenticator } from '@aws-amplify/ui-react';
 import { AuthState } from '@aws-amplify/ui-components';
 import searchlogo from './searchConsoleArt.svg'
 
