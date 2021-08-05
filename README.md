@@ -22,7 +22,7 @@ The MediaSearch solution has an event driven serverless computing architecture, 
 2.	Amazon EventBridge generates events on a repeating interval (e.g. every 2 hours, every 6 hours, etc.) These events invoke the AWS Lambda function (3)
 3.	The AWS Lambda function is invoked initially when the CloudFormation stack is first deployed, and then subsequently by the scheduled events from Amazon EventBridge (2). A Kendra data source sync job is started. The Lambda function lists all the supported media files (FLAC, MP3, MP4, Ogg, WebM, AMR, or WAV) and associated metadata and transcribe options stored in the user provided S3 bucket (1).  
     1. Each new media file is added to the Amazon DynamboDB tracking table (4) and submitted to be transcribed by an Amazon Transcribe job.   
-    2. Any files that has been previously transcribed will be submitted for transcription again only if it has been modified since it was previously transcribed, or if associated transcribe options have been updated.  
+    2. Any file that has been previously transcribed will be submitted for transcription again only if it has been modified since it was previously transcribed, or if associated transcribe options have been updated.  
 The DynamoDB table (4) is updated to reflect the transcription status and last modified timestamp of each file. Any tracked files that no longer exist in the S3 bucket are removed from the DynamoDB table and from the Kendra index.
 If no new or updated files were discovered, the Kendra data source sync job is immediately stopped.  
 4.	The DynamoDB table holds a record for each media file with attributes to track transcription job names and status, and last modified timestamps. 
