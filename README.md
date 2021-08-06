@@ -10,10 +10,11 @@ The solution also provides an enhanced Kendra query application which lets users
 
 The MediaSearch solution has two components.  
 - The first component, the MediaSearch indexer, finds and transcribes audio and video files stored in an S3 bucket. It prepares the transcriptions by embedding time markers at the start of each sentence, and it indexes each prepared transcription in a new or existing Kendra index. It runs for the first time when you install it, and subsequently it runs on an interval that you specify, maintaining the Kendra index to reflect any new, modified, or deleted files. You can optionally provide additional metadata for your media files to add faceting and filtering to your searches. You can also optionally provide additional options files to customize how Amazon Transcribe transcribes your media files - use custom vocabulary, custom language models, or take advantage of other Amazon Transcribe features.    
-- The second component, the MediaSearch finder, is a sample web search client that you use to search for content in your Kendra index. It has all the features of a standard Kendra search page, but it also includes in-line embedded media players in the search result, so you can not only see the relevant section of the transcript, but also play the corresponding section from the original media without navigating away from the search page.
+- The second component, the MediaSearch finder, is a sample web search client that you use to search for content in your Kendra index. It has all the features of a standard Kendra search page, but it also includes in-line embedded media players in the search result, so you can not only see the relevant section of the transcript, but also play the corresponding section from the original media without navigating away from the search page.  
+
 ![Finder](images/Finder.png)
 
-See the blog post to get started: [Making your audio and video files searchable using Amazon Transcribe and Amazon Kendra](TODO)
+See the blog post to get started: [Making your audio and video files searchable using Amazon Transcribe and Amazon Kendra](https://aws.amazon.com/blogs/machine-learning/make-your-audio-and-video-files-searchable-using-amazon-transcribe-and-amazon-kendra/)
 
 ## Architecture
 ![Finder](images/Architecture.png)
