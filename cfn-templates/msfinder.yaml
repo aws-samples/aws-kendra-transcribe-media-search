@@ -247,6 +247,8 @@ Resources:
           Value: !Ref UserPoolClient
         - Name: REACT_APP_ROLE_ARN
           Value: !GetAtt MediaAppCredsRole.Arn
+        - Name: REACT_APP_ENABLE_AUTH
+          Value: !Ref EnableAuthentication
       IAMServiceRole: !GetAtt MediaRepositoryAssumeRole.Arn
       Name: !Join
         - ''
@@ -325,6 +327,11 @@ Parameters:
     Default: "<SAMPLES_BUCKET>"
     Description: >-
       (Required) A comma-delimited list of media bucket names - may include wildcards. Needed to support presigned URLs used to access media files contained in search results.
+  EnableAuthentication:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Set true to enable authentication UI'
     
 Outputs:
   MediaSearchFinderURL:
