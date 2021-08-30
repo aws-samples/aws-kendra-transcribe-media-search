@@ -8,8 +8,39 @@ Resources:
     Properties:
       AliasAttributes:
         - email
+      AutoVerifiedAttributes:
+        - email
       UsernameConfiguration:
         CaseSensitive: false
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+        InviteMessageTemplate:
+          EmailMessage: "<p>Hello {username},\n<p>Welcome to Finder App! Your temporary password is:\n<p>     {####}\n<p>\n<p>When the CloudFormation stack is COMPLETE, use the link below to log in, set your permanent password, and start searching!\n<p>Good luck!\n"
+          EmailSubject: "Welcome to Finder Web App"
+      
+  Admins:
+    Type: 'AWS::Cognito::UserPoolGroup'
+    Properties:
+      GroupName: 'Admins'
+      UserPoolId: !Ref UserPool
+      
+  AdminUser:
+    Type: 'AWS::Cognito::UserPoolUser'
+    Properties:
+      DesiredDeliveryMediums:
+        - EMAIL
+      UserAttributes:
+        - Name: 'email'
+          Value: !Ref AdminEmail
+      Username: 'Admin'
+      UserPoolId: !Ref UserPool
+        
+  AdminToAdmins:
+    Type: 'AWS::Cognito::UserPoolUserToGroupAttachment'
+    Properties:
+      GroupName: !Ref Admins
+      Username: !Ref AdminUser
+      UserPoolId: !Ref UserPool
       
   ##Create Cognito IdentityPool for Authorization and associate the UserPool client with it
   IdentityPool:
@@ -249,6 +280,8 @@ Resources:
           Value: !GetAtt MediaAppCredsRole.Arn
         - Name: REACT_APP_ENABLE_AUTH
           Value: !Ref EnableAuthentication
+        - Name: REACT_APP_ENABLE_GUEST
+          Value: !Ref EnableGuestUser
       IAMServiceRole: !GetAtt MediaRepositoryAssumeRole.Arn
       Name: !Join
         - ''
@@ -332,6 +365,16 @@ Parameters:
     Default: 'false'
     AllowedValues: ['true', 'false']
     Description: 'Set true to enable authentication UI'
+  AdminEmail:
+    Type: String
+    Description: 'Required: Email address for the admin user. Will be used for logging in and for setting the admin password. This email will receive the temporary password for the admin user.'
+    AllowedPattern: ".+\\@.+\\..+"
+    ConstraintDescription: 'Must be valid email address eg. johndoe@example.com'
+  EnableGuestUser:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Set true to enable using the search application without logging in'
     
 Outputs:
   MediaSearchFinderURL:
@@ -339,3 +382,11 @@ Outputs:
       - ''
       - - 'https://main.'
         - !GetAtt AmplifyApp.DefaultDomain
+  CognitoSigningKeyURL:
+    Value: !Join
+      - ''
+      - - 'https://cognito-idp.'
+        - !Ref 'AWS::Region'
+        - '.amazonaws.com/'
+        - !Ref UserPool
+        - '/.well-known/jwks.json'

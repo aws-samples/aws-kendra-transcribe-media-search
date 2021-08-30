@@ -9,7 +9,7 @@ import aws_exports from './aws-exports';
 import Kendra from 'aws-sdk/clients/kendra';
 import Auth from '@aws-amplify/auth';
 import { AuthState } from '@aws-amplify/ui-components';
-import { AmplifyGreetings, AmplifyAuthenticator } from '@aws-amplify/ui-react';
+import { AmplifyGreetings, AmplifySignIn, AmplifyAuthenticator } from '@aws-amplify/ui-react';
 import Button from 'react-bootstrap/Button';
 import searchlogo from './searchConsoleArt.svg'
 
@@ -19,6 +19,7 @@ const indexId = process.env.REACT_APP_INDEX_ID!;
 const region = process.env.REACT_APP_REGION!;
 const role_arn = process.env.REACT_APP_ROLE_ARN!;
 const enable_auth = process.env.REACT_APP_ENABLE_AUTH!;
+const enable_guest = process.env.REACT_APP_ENABLE_GUEST!;
 
 interface AppState {
   infraReady: boolean;
@@ -119,37 +120,63 @@ class App extends React.Component<string[], AppState> {
   }
   render() {
     if (enable_auth === "true") {
-      return (
-        <div className="App">
-          {this.state.authUser && (
-            <div style={{textAlign: 'left'}}>
-            {this.state.loginScreen && (
-              <div style={{display: 'flex', justifyContent: 'center'}}>
-                <Button as="input" type="submit" value="Continue as Guest" onClick={this.handleClick} block/>
+      if (enable_guest == "true") {
+        return (
+          <div className="App">
+            {this.state.authUser && (
+              <div style={{textAlign: 'left'}}>
+              {this.state.loginScreen && (
+                <div style={{display: 'flex', justifyContent: 'center'}}>
+                  <Button as="input" type="submit" value="Continue as Guest" onClick={this.handleClick} block/>
+                </div>
+              )}
+                <div style={this.state.user ? {} : {display: 'flex', justifyContent: 'center'}}>
+                  <AmplifyAuthenticator handleAuthStateChange={this.authChangeState}>
+                    <AmplifySignIn slot="sign-in" hideSignUp />
+                    <AmplifyGreetings username={this.state.user} slot="greetings"/>
+                    {this.state.user && this.state.infraReady && this.state.s3 &&
+                      <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} accessToken={this.state.accessToken} facetConfiguration={facetConfiguration}/>
+                    }
+                  </AmplifyAuthenticator>
+                </div>
               </div>
             )}
-              <div style={this.state.user ? {} : {display: 'flex', justifyContent: 'center'}}>
-                <AmplifyAuthenticator handleAuthStateChange={this.authChangeState}>
-                  <AmplifyGreetings username={this.state.user} slot="greetings"/>
-                  {this.state.user && this.state.infraReady && this.state.s3 &&
-                    <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} accessToken={this.state.accessToken} facetConfiguration={facetConfiguration}/>
-                  }
-                </AmplifyAuthenticator>
-              </div>
+            {!this.state.authUser && this.state.infraReady && this.state.s3 && ( 
+            <div>
+              {this.state.loginScreen && (
+                <div style={{display: 'flex', justifyContent: 'center'}}>
+                  <Button as="input" type="submit" value="Welcome Guest! Click here to sign up or sign in" onClick={this.handleClick} block/>
+                </div>
+              )}
+              <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
             </div>
-          )}
-          {!this.state.authUser && this.state.infraReady && this.state.s3 && ( 
-          <div>
-            {this.state.loginScreen && (
-              <div style={{display: 'flex', justifyContent: 'center'}}>
-                <Button as="input" type="submit" value="Welcome Guest! Click here to sign up or sign in" onClick={this.handleClick} block/>
+            )}
+          </div>
+        );      
+      } else {
+         return (
+          <div className="App">
+            {this.state.authUser && (
+              <div style={{textAlign: 'left'}}>
+                <div style={this.state.user ? {} : {display: 'flex', justifyContent: 'center'}}>
+                  <AmplifyAuthenticator handleAuthStateChange={this.authChangeState}>
+                    <AmplifySignIn slot="sign-in" hideSignUp />
+                    <AmplifyGreetings username={this.state.user} slot="greetings"/>
+                    {this.state.user && this.state.infraReady && this.state.s3 &&
+                      <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} accessToken={this.state.accessToken} facetConfiguration={facetConfiguration}/>
+                    }
+                  </AmplifyAuthenticator>
+                </div>
               </div>
             )}
-            <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
+            {!this.state.authUser && this.state.infraReady && this.state.s3 && ( 
+            <div>
+              <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
+            </div>
+            )}
           </div>
-          )}
-        </div>
-      );      
+        );      
+      }
     } else {
       return (
         <div className="App">
