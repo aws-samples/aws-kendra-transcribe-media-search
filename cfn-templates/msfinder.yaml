@@ -367,7 +367,7 @@ Parameters:
     Description: 'Set true to enable authentication UI'
   AdminEmail:
     Type: String
-    Description: 'Required: Email address for the admin user. Will be used for logging in and for setting the admin password. This email will receive the temporary password for the admin user.'
+    Description: 'Required: Email address for the admin user. Will be used for setting the admin password. This email will receive the temporary password for the admin user.'
     AllowedPattern: ".+\\@.+\\..+"
     ConstraintDescription: 'Must be valid email address eg. johndoe@example.com'
   EnableGuestUser:
