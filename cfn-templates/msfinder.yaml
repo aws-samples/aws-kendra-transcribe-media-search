@@ -351,6 +351,77 @@ Resources:
       Param2: '<ARTIFACT_PREFIX_TOKEN>'
       Param3: !Ref KendraIndexId
       Param4: !Ref MediaBucketNames
+  
+  TokenEnablerLambdaRole:
+    Type: AWS::IAM::Role
+    Condition: EnableAccess
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Resource: !Sub
+                  - 'arn:aws:kendra:${region}:${account}:index/${index}*'
+                  - region: !Ref 'AWS::Region'
+                    account: !Ref 'AWS::AccountId'
+                    index: !Ref KendraIndexId
+                Action:
+                  - 'kendra:*'
+          PolicyName: TokenEnablerLambdaPolicy
+          
+  TokenEnablerLambda:
+    Type: AWS::Lambda::Function
+    Condition: EnableAccess
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt 'TokenEnablerLambdaRole.Arn'
+      Timeout: 900
+      MemorySize: 1024
+      Code:
+        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
+        S3Key: !Join
+          - ''
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<TOKEN_ENABLER_ZIPFILE>'
+      Environment:
+        Variables:
+          INDEX_ID: !Ref KendraIndexId
+          SIGNING_KEY_URL: !Join
+            - ''
+            - - 'https://cognito-idp.'
+              - !Ref 'AWS::Region'
+              - '.amazonaws.com/'
+              - !Ref UserPool
+              - '/.well-known/jwks.json'
+  
+  TokenEnabler:
+    Type: Custom::TokenEnabler
+    Condition: EnableAccess
+    DependsOn: 
+      - AmplifyApp
+    Properties:
+      ServiceToken: !GetAtt TokenEnablerLambda.Arn
+      Param1: '<ARTIFACT_BUCKET_TOKEN>'
+      Param2: '<ARTIFACT_PREFIX_TOKEN>'
+      Param3: !Ref KendraIndexId
+      Param4: !Join
+        - ''
+        - - 'https://cognito-idp.'
+          - !Ref 'AWS::Region'
+          - '.amazonaws.com/'
+          - !Ref UserPool
+          - '/.well-known/jwks.json'
     
 Parameters:
   KendraIndexId:
@@ -375,6 +446,16 @@ Parameters:
     Default: 'false'
     AllowedValues: ['true', 'false']
     Description: 'Set true to enable using the search application without logging in'
+  EnableAccessTokens:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Set true to enable use of Cognito user pool access tokens in the Kendra index'
+    
+Conditions:
+  EnableAccess: !Equals 
+    - !Ref EnableAccessTokens
+    - 'true'
     
 Outputs:
   MediaSearchFinderURL:

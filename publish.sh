@@ -61,6 +61,11 @@ buildtriggerzip=buildtrigger_$timestamp.zip
 pushd lambda/build-trigger
 zip -r $tmpdir/$buildtriggerzip *.py
 popd
+# token-enabler
+tokenenablerzip=tokenenabler_$timestamp.zip
+pushd lambda/token-enabler
+zip -r $tmpdir/$tokenenablerzip *.py
+popd
 
 echo "Create zipfile for AWS Amplify/CodeCommit"
 finderzip=finder_$timestamp.zip
@@ -76,6 +81,7 @@ echo "   <ARTIFACT_PREFIX_TOKEN> with prefix: $PREFIX"
 echo "   <INDEXER_ZIPFILE> with zipfile: $indexerzip"
 echo "   <BUILDTRIGGER_ZIPFILE> with zipfile: $buildtriggerzip"
 echo "   <FINDER_ZIPFILE> with zipfile: $finderzip"
+echo "   <TOKEN_ENABLER_ZIPFILE> with zipfile: $tokenenablerzip"
 echo "   <REGION> with region: $region"
 [ -z "$SAMPLES_BUCKET" ] || echo "   <SAMPLES_BUCKET> with bucket name: $SAMPLES_BUCKET"
 [ -z "$SAMPLES_PREFIX" ] || echo "   <SAMPLES_PREFIX> with prefix: $SAMPLES_PREFIX"
@@ -90,6 +96,7 @@ do
     sed -e "s%<INDEXER_ZIPFILE>%$indexerzip%g" |
     sed -e "s%<BUILDTRIGGER_ZIPFILE>%$buildtriggerzip%g" |
     sed -e "s%<FINDER_ZIPFILE>%$finderzip%g" |
+    sed -e "s%<TOKEN_ENABLER_ZIPFILE>%$tokenenablerzip%g" |
     sed -e "s%<SAMPLES_BUCKET>%$SAMPLES_BUCKET%g" |
     sed -e "s%<SAMPLES_PREFIX>%$SAMPLES_PREFIX%g" |
     sed -e "s%<METADATA_PREFIX>%$METADATA_PREFIX%g" |
@@ -99,7 +106,7 @@ done
 
 S3PATH=s3://$BUCKET/$PREFIX
 echo "Copy $tmpdir/* to $S3PATH/"
-for f in msfinder.yaml msindexer.yaml $indexerzip $buildtriggerzip $finderzip
+for f in msfinder.yaml msindexer.yaml $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
 do
 aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} --acl public-read || exit 1
 done
