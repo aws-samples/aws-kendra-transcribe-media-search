@@ -15,7 +15,7 @@ Resources:
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
         InviteMessageTemplate:
-          EmailMessage: "<p>Hello {username},\n<p>Welcome to Finder App! Your temporary password is:\n<p>     {####}\n<p>\n<p>When the CloudFormation stack is COMPLETE, use the link below to log in, set your permanent password, and start searching!\n<p>Good luck!\n"
+          EmailMessage: "<p>Hello {username},\n<p>Welcome to Finder App! Your temporary password is:\n<p>     {####}\n<p>\n<p>When the CloudFormation stack is COMPLETE, use the MediaSearchFinderURL in the Outputs tab of the CloudFormation stack to login using admin as username, set your permanent password, and start searching!\n<p>Good luck!\n"
           EmailSubject: "Welcome to Finder Web App"
       
   Admins:
@@ -282,6 +282,8 @@ Resources:
           Value: !Ref EnableAuthentication
         - Name: REACT_APP_ENABLE_GUEST
           Value: !Ref EnableGuestUser
+        - Name: REACT_APP_ENABLE_ACCESSTOKENS
+          Value: !Ref EnableAccessTokens
       IAMServiceRole: !GetAtt MediaRepositoryAssumeRole.Arn
       Name: !Join
         - ''
@@ -452,6 +454,22 @@ Parameters:
     AllowedValues: ['true', 'false']
     Description: 'Set true to enable use of Cognito user pool access tokens in the Kendra index'
     
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                default: Kendra search webapp parameters
+              Parameters:
+                  - KendraIndexId
+                  - MediaBucketNames
+            - Label:
+                default: Authentication and access control parameters
+              Parameters:
+                  - EnableAuthentication
+                  - AdminEmail
+                  - EnableGuestUser
+                  - EnableAccessTokens
+                  
 Conditions:
   EnableAccess: !Equals 
     - !Ref EnableAccessTokens

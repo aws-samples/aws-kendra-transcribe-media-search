@@ -20,6 +20,7 @@ const region = process.env.REACT_APP_REGION!;
 const role_arn = process.env.REACT_APP_ROLE_ARN!;
 const enable_auth = process.env.REACT_APP_ENABLE_AUTH!;
 const enable_guest = process.env.REACT_APP_ENABLE_GUEST!;
+const enable_tokens = process.env.REACT_APP_ENABLE_ACCESSTOKENS!;
 
 interface AppState {
   infraReady: boolean;
@@ -120,7 +121,7 @@ class App extends React.Component<string[], AppState> {
   }
   render() {
     if (enable_auth === "true") {
-      if (enable_guest == "true") {
+      if (enable_guest === "true") {
         return (
           <div className="App">
             {this.state.authUser && (
@@ -134,8 +135,11 @@ class App extends React.Component<string[], AppState> {
                   <AmplifyAuthenticator handleAuthStateChange={this.authChangeState}>
                     <AmplifySignIn slot="sign-in" hideSignUp />
                     <AmplifyGreetings username={this.state.user} slot="greetings"/>
-                    {this.state.user && this.state.infraReady && this.state.s3 &&
+                    {this.state.user && this.state.infraReady && this.state.s3 && (enable_tokens === 'true') &&
                       <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} accessToken={this.state.accessToken} facetConfiguration={facetConfiguration}/>
+                    }
+                    {this.state.user && this.state.infraReady && this.state.s3 && (enable_tokens === 'false') &&
+                      <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
                     }
                   </AmplifyAuthenticator>
                 </div>
@@ -162,8 +166,11 @@ class App extends React.Component<string[], AppState> {
                   <AmplifyAuthenticator handleAuthStateChange={this.authChangeState}>
                     <AmplifySignIn slot="sign-in" hideSignUp />
                     <AmplifyGreetings username={this.state.user} slot="greetings"/>
-                    {this.state.user && this.state.infraReady && this.state.s3 &&
+                    {this.state.user && this.state.infraReady && this.state.s3 && (enable_tokens === 'true') &&
                       <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} accessToken={this.state.accessToken} facetConfiguration={facetConfiguration}/>
+                    }
+                    {this.state.user && this.state.infraReady && this.state.s3 && (enable_tokens === 'false') &&
+                      <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
                     }
                   </AmplifyAuthenticator>
                 </div>
