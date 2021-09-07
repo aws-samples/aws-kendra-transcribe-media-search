@@ -8,8 +8,9 @@ import AWS from 'aws-sdk';
 import aws_exports from './aws-exports';
 import Kendra from 'aws-sdk/clients/kendra';
 import Auth from '@aws-amplify/auth';
-import { AuthState } from '@aws-amplify/ui-components';
+import { AuthState, UI_AUTH_CHANNEL, AUTH_STATE_CHANGE_EVENT } from '@aws-amplify/ui-components';
 import { AmplifyGreetings, AmplifySignIn, AmplifyAuthenticator } from '@aws-amplify/ui-react';
+import { Hub } from "@aws-amplify/core";
 import Button from 'react-bootstrap/Button';
 import searchlogo from './searchConsoleArt.svg'
 
@@ -57,6 +58,13 @@ class App extends React.Component<string[], AppState> {
       let accessToken = user.signInUserSession.accessToken.jwtToken;
       if (nextAuthState === AuthState.SignedIn){
         this.setState({loginScreen:false, authUser: true, user: user ? user!.username : undefined, accessToken: accessToken ? accessToken : undefined});
+      } else if (nextAuthState === AuthState.VerifyContact){
+        Hub.dispatch(UI_AUTH_CHANNEL, {
+          event: AUTH_STATE_CHANGE_EVENT,
+          message: AuthState.SignedIn,
+          data: await Auth.currentAuthenticatedUser(),
+        }); 
+        this.setState({loginScreen:true, authUser: true, user: user ? user!.username : undefined, accessToken: accessToken ? accessToken : undefined});
       } else {
         this.setState({loginScreen:true, authUser: true, user: user ? user!.username : undefined, accessToken: accessToken ? accessToken : undefined});
       }
@@ -64,6 +72,13 @@ class App extends React.Component<string[], AppState> {
       console.log('currentAuthenticatedUser Exception');
       if (nextAuthState === AuthState.SignedIn){
         this.setState({loginScreen:false, authUser: true, user: undefined, accessToken: undefined});
+      } else if (nextAuthState === AuthState.VerifyContact){
+        Hub.dispatch(UI_AUTH_CHANNEL, {
+          event: AUTH_STATE_CHANGE_EVENT,
+          message: AuthState.SignedIn,
+          data: await Auth.currentAuthenticatedUser(),
+        }); 
+        this.setState({loginScreen:true, authUser: true, user: undefined, accessToken: undefined});
       } else {
         this.setState({loginScreen:true, authUser: true, user: undefined, accessToken: undefined});
       }

@@ -15,7 +15,7 @@ Resources:
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
         InviteMessageTemplate:
-          EmailMessage: "<p>Hello {username},\n<p>Welcome to Finder App! Your temporary password is:\n<p>     {####}\n<p>\n<p>When the CloudFormation stack is COMPLETE, use the MediaSearchFinderURL in the Outputs tab of the CloudFormation stack to login using admin as username, set your permanent password, and start searching!\n<p>Good luck!\n"
+          EmailMessage: "<p>Hello {username},\n<p>Welcome to Finder App! Your temporary password is:\n<br><p>     {####}\n<p>\n<p>When the CloudFormation stack is COMPLETE, use the MediaSearchFinderURL in the Outputs tab of the CloudFormation stack to login using admin as username, set your permanent password, and start searching!\n<p>Good luck!\n"
           EmailSubject: "Welcome to Finder Web App"
       
   Admins:
@@ -279,7 +279,7 @@ Resources:
         - Name: REACT_APP_ROLE_ARN
           Value: !GetAtt MediaAppCredsRole.Arn
         - Name: REACT_APP_ENABLE_AUTH
-          Value: !Ref EnableAuthentication
+          Value: !If [NoAuthentication, 'false', 'true']
         - Name: REACT_APP_ENABLE_GUEST
           Value: !Ref EnableGuestUser
         - Name: REACT_APP_ENABLE_ACCESSTOKENS
@@ -353,6 +353,8 @@ Resources:
       Param2: '<ARTIFACT_PREFIX_TOKEN>'
       Param3: !Ref KendraIndexId
       Param4: !Ref MediaBucketNames
+      Param5: !Ref EnableAccessTokens
+      Param6: !Ref EnableGuestUser
   
   TokenEnablerLambdaRole:
     Type: AWS::IAM::Role
@@ -433,15 +435,11 @@ Parameters:
     Default: "<SAMPLES_BUCKET>"
     Description: >-
       (Required) A comma-delimited list of media bucket names - may include wildcards. Needed to support presigned URLs used to access media files contained in search results.
-  EnableAuthentication:
-    Type: String
-    Default: 'false'
-    AllowedValues: ['true', 'false']
-    Description: 'Set true to enable authentication UI'
   AdminEmail:
     Type: String
-    Description: 'Required: Email address for the admin user. Will be used for setting the admin password. This email will receive the temporary password for the admin user.'
-    AllowedPattern: ".+\\@.+\\..+"
+    Description: 'To enable authentication please provide a valid email address for the admin user. This email address will be used for setting the admin password. This email will receive the temporary password for the admin user.'
+    AllowedPattern: "(^$|^.+\\@.+\\..+)"
+    Default: ''
     ConstraintDescription: 'Must be valid email address eg. johndoe@example.com'
   EnableGuestUser:
     Type: String
@@ -465,12 +463,14 @@ Metadata:
             - Label:
                 default: Authentication and access control parameters
               Parameters:
-                  - EnableAuthentication
                   - AdminEmail
                   - EnableGuestUser
                   - EnableAccessTokens
                   
 Conditions:
+  NoAuthentication: !Equals
+    - !Ref AdminEmail
+    - ''
   EnableAccess: !Equals 
     - !Ref EnableAccessTokens
     - 'true'
