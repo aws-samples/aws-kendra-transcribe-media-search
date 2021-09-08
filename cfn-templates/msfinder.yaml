@@ -20,12 +20,14 @@ Resources:
       
   Admins:
     Type: 'AWS::Cognito::UserPoolGroup'
+    Condition: EnableAuth
     Properties:
       GroupName: 'Admins'
       UserPoolId: !Ref UserPool
       
   AdminUser:
     Type: 'AWS::Cognito::UserPoolUser'
+    Condition: EnableAuth
     Properties:
       DesiredDeliveryMediums:
         - EMAIL
@@ -37,6 +39,7 @@ Resources:
         
   AdminToAdmins:
     Type: 'AWS::Cognito::UserPoolUserToGroupAttachment'
+    Condition: EnableAuth
     Properties:
       GroupName: !Ref Admins
       Username: !Ref AdminUser
@@ -279,7 +282,7 @@ Resources:
         - Name: REACT_APP_ROLE_ARN
           Value: !GetAtt MediaAppCredsRole.Arn
         - Name: REACT_APP_ENABLE_AUTH
-          Value: !If [NoAuthentication, 'false', 'true']
+          Value: !If [EnableAuth, 'true', 'false']
         - Name: REACT_APP_ENABLE_GUEST
           Value: !Ref EnableGuestUser
         - Name: REACT_APP_ENABLE_ACCESSTOKENS
@@ -355,6 +358,7 @@ Resources:
       Param4: !Ref MediaBucketNames
       Param5: !Ref EnableAccessTokens
       Param6: !Ref EnableGuestUser
+      Param7: !Ref AdminEmail
   
   TokenEnablerLambdaRole:
     Type: AWS::IAM::Role
@@ -468,9 +472,10 @@ Metadata:
                   - EnableAccessTokens
                   
 Conditions:
-  NoAuthentication: !Equals
-    - !Ref AdminEmail
-    - ''
+  EnableAuth: !Not
+    - !Equals
+      - !Ref AdminEmail
+      - ''
   EnableAccess: !Equals 
     - !Ref EnableAccessTokens
     - 'true'

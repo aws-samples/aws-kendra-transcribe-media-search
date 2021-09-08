@@ -134,14 +134,13 @@ class App extends React.Component<string[], AppState> {
       console.log("Auth exception: ", e);
     }
   }
+  
   render() {
-    if (enable_auth === "true") {
-      if (enable_guest === "true") {
         return (
           <div className="App">
-            {this.state.authUser && (
+            {this.state.authUser && (enable_auth === 'true') && (
               <div style={{textAlign: 'left'}}>
-              {this.state.loginScreen && (
+              {this.state.loginScreen && (enable_guest === 'true') && (
                 <div style={{display: 'flex', justifyContent: 'center'}}>
                   <Button as="input" type="submit" value="Continue as Guest" onClick={this.handleClick} block/>
                 </div>
@@ -162,7 +161,7 @@ class App extends React.Component<string[], AppState> {
             )}
             {!this.state.authUser && this.state.infraReady && this.state.s3 && ( 
             <div>
-              {this.state.loginScreen && (
+              {this.state.loginScreen && (enable_guest === 'true') && (
                 <div style={{display: 'flex', justifyContent: 'center'}}>
                   <Button as="input" type="submit" value="Welcome Guest! Click here to sign up or sign in" onClick={this.handleClick} block/>
                 </div>
@@ -170,45 +169,16 @@ class App extends React.Component<string[], AppState> {
               <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
             </div>
             )}
-          </div>
-        );      
-      } else {
-         return (
-          <div className="App">
-            {this.state.authUser && (
-              <div style={{textAlign: 'left'}}>
-                <div style={this.state.user ? {} : {display: 'flex', justifyContent: 'center'}}>
-                  <AmplifyAuthenticator handleAuthStateChange={this.authChangeState}>
-                    <AmplifySignIn slot="sign-in" hideSignUp />
-                    <AmplifyGreetings username={this.state.user} slot="greetings"/>
-                    {this.state.user && this.state.infraReady && this.state.s3 && (enable_tokens === 'true') &&
-                      <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} accessToken={this.state.accessToken} facetConfiguration={facetConfiguration}/>
-                    }
-                    {this.state.user && this.state.infraReady && this.state.s3 && (enable_tokens === 'false') &&
-                      <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
-                    }
-                  </AmplifyAuthenticator>
+            {(enable_auth === 'false') &&  (
+              <div className="App">
+                <div style={{textAlign: 'center'}}>
+                  <img src={searchlogo} alt='Search Logo' />
                 </div>
-              </div>
-            )}
-            {!this.state.authUser && this.state.infraReady && this.state.s3 && ( 
-            <div>
-              <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
-            </div>
+                <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
+             </div>
             )}
           </div>
         );      
-      }
-    } else {
-      return (
-        <div className="App">
-            <div style={{textAlign: 'center'}}>
-                <img src={searchlogo} alt='Search Logo' />
-            </div>
-            <Search kendra={this.state.kendra} indexId={indexId} s3={this.state.s3} facetConfiguration={facetConfiguration}/>
-        </div>
-      );
-    }
   }
 }
 
