@@ -15,7 +15,7 @@ Resources:
       AdminCreateUserConfig:
         AllowAdminCreateUserOnly: true
         InviteMessageTemplate:
-          EmailMessage: "<p>Hello {username},\n<p>Welcome to Finder App! Your temporary password is:\n<br><p>     {####}\n<p>\n<p>When the CloudFormation stack is COMPLETE, use the MediaSearchFinderURL in the Outputs tab of the CloudFormation stack to login using admin as username, set your permanent password, and start searching!\n<p>Good luck!\n"
+          EmailMessage: "<p>Hello {username},\n<p>Welcome to Finder App! Your temporary password is:\n<br><p>     {####}<br>\n<p>When the CloudFormation stack is COMPLETE, use the MediaSearchFinderURL in the Outputs tab of the CloudFormation stack to login using {username} as username, set your permanent password, and start searching!\n<p>Good luck!\n"
           EmailSubject: "Welcome to Finder Web App"
       
   Admins:
