@@ -1,5 +1,5 @@
 Description: >
-  MediaSearch Solution - Indexer stack (v0.1.0)
+  MediaSearch Solution - Indexer stack (v0.2.0)
 
 Resources:
   ##Create the Role needed to create a Kendra Index

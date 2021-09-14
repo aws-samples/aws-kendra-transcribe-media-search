@@ -1,5 +1,5 @@
 Description: >
-  MediaSearch Solution - Finder stack (v0.1.0)
+  MediaSearch Solution - Finder stack (v0.2.0)
   
 Resources:
   ##Create Cognito Userpool for Authentication
