@@ -38,6 +38,7 @@ You can add metadata - additional information about a media file - using a metad
 Your metadata files must be stored in the same bucket as your media files. You can specify a location within the bucket for your metadata files using the optional CloudFormation parameter `MetadataFolderPrefix`. If you don't specify an S3 prefix, your metadata files must be stored in the same location as your indexed documents. A metadata file must have the same name as the associated media file, with the additional filename suffix `.metadata.json` added. 
 
 See Kendra documentation for more details on how and where to create metadata files: [S3 document metadata](https://docs.aws.amazon.com/kendra/latest/dg/s3-metadata.html)
+The **AccessControlList** field of the document metadata can be used to allow or deny access to the document to specific users and groups. When the authentication and access tokens are enabled in the Finder application, it sends the user token of the logged in user along with the query to the Kendra index.
 
 ## Add Transcribe options
 You can add transcribe options - additional configuration settings to customise your media file transcription job - using a transcribe options file. Each transcribe options file is associated with an indexed media file.  Adding transribe options allows you to take full advantage of Amazon Transcribe features, such as [Custom vocabularies](https://docs.aws.amazon.com/transcribe/latest/dg/how-vocabulary.html), [Automatic content redaction](https://docs.aws.amazon.com/transcribe/latest/dg/content-redaction.html), [Custom Language models](https://docs.aws.amazon.com/transcribe/latest/dg/custom-language-models.html), and more. 
@@ -60,6 +61,11 @@ If the options file does not specify a value for `LanguageCode`, the crawler wil
   
 To troubleshoot any issues with transcribe options, examine the crawler lambda function logs in CloudWatch. On the Functions page of the Lambda console, use your MediaSearch stack name as a filter to list the two MediaSearch indexer functions. Choose the crawler function, and then choose **Monitor & View logs in CloudWatch** to examine the output and troubleshoot any issues reported when starting the Transcribe jobs for your media files.
 
+## Optional Authentication and Access Control
+
+Authentication using [Amazon Cognito user pools](https://docs.aws.amazon.com/cognito/latest/developerguide/cognito-user-identity-pools.html) can be enabled by providing a valid email address to the **AdminEmail** parameter of the Finder CloudFormation template. The Finder template creates a user with username **admin** and adds it to a group called **Admins**. Cognito sends an email to the email address specified in the **AdminEmail** parameter with the temporary password for the username **admin**. To create additional users and groups in the Cognito userpool please refer to [Creating User Accounts as Administrator](https://docs.aws.amazon.com/cognito/latest/developerguide/how-to-create-user-accounts.html) and [Adding Groups to a User Pool](https://docs.aws.amazon.com/cognito/latest/developerguide/how-to-create-user-accounts.html). 
+
+The **EnableAccessTokens** parameter of the Finder CloudFormation template enables the Cognito user pool to be used as an [OpenID provider for the Kendra index](https://docs.aws.amazon.com/kendra/latest/dg/create-index-access-control-tokens-openid.html). The **AccessControlList** field of the document metadata can be used to allow or deny access to the document to specific users and groups as specified in the **Add Kendra Metadata** section above.
 
 ## Indexer
 

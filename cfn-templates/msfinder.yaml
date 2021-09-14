@@ -486,6 +486,10 @@ Outputs:
       - ''
       - - 'https://main.'
         - !GetAtt AmplifyApp.DefaultDomain
+        
+  CognitoUserPool: 
+    Value: !Ref UserPool
+  
   CognitoSigningKeyURL:
     Value: !Join
       - ''
