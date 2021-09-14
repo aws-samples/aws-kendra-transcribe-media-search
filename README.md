@@ -37,7 +37,8 @@ You can add metadata - additional information about a media file - using a metad
 
 Your metadata files must be stored in the same bucket as your media files. You can specify a location within the bucket for your metadata files using the optional CloudFormation parameter `MetadataFolderPrefix`. If you don't specify an S3 prefix, your metadata files must be stored in the same location as your indexed documents. A metadata file must have the same name as the associated media file, with the additional filename suffix `.metadata.json` added. 
 
-See Kendra documentation for more details on how and where to create metadata files: [S3 document metadata](https://docs.aws.amazon.com/kendra/latest/dg/s3-metadata.html)
+See Kendra documentation for more details on how and where to create metadata files: [S3 document metadata](https://docs.aws.amazon.com/kendra/latest/dg/s3-metadata.html).
+
 The **AccessControlList** field of the document metadata can be used to allow or deny access to the document to specific users and groups. When the authentication and access tokens are enabled in the Finder application, it sends the user token of the logged in user along with the query to the Kendra index.
 
 ## Add Transcribe options
