@@ -10,10 +10,11 @@ The solution also provides an enhanced Kendra query application which lets users
 
 The MediaSearch solution has two components.  
 - The first component, the MediaSearch indexer, finds and transcribes audio and video files stored in an S3 bucket. It prepares the transcriptions by embedding time markers at the start of each sentence, and it indexes each prepared transcription in a new or existing Kendra index. It runs for the first time when you install it, and subsequently it runs on an interval that you specify, maintaining the Kendra index to reflect any new, modified, or deleted files. You can optionally provide additional metadata for your media files to add faceting and filtering to your searches. You can also optionally provide additional options files to customize how Amazon Transcribe transcribes your media files - use custom vocabulary, custom language models, or take advantage of other Amazon Transcribe features.    
-- The second component, the MediaSearch finder, is a sample web search client that you use to search for content in your Kendra index. It has all the features of a standard Kendra search page, but it also includes in-line embedded media players in the search result, so you can not only see the relevant section of the transcript, but also play the corresponding section from the original media without navigating away from the search page.
+- The second component, the MediaSearch finder, is a sample web search client that you use to search for content in your Kendra index. It has all the features of a standard Kendra search page, but it also includes in-line embedded media players in the search result, so you can not only see the relevant section of the transcript, but also play the corresponding section from the original media without navigating away from the search page.  
+
 ![Finder](images/Finder.png)
 
-See the blog post to get started: [Making your audio and video files searchable using Amazon Transcribe and Amazon Kendra](TODO)
+See the blog post to get started: [Making your audio and video files searchable using Amazon Transcribe and Amazon Kendra](https://aws.amazon.com/blogs/machine-learning/make-your-audio-and-video-files-searchable-using-amazon-transcribe-and-amazon-kendra/)
 
 ## Architecture
 ![Finder](images/Architecture.png)
@@ -22,7 +23,7 @@ The MediaSearch solution has an event driven serverless computing architecture, 
 2.	Amazon EventBridge generates events on a repeating interval (e.g. every 2 hours, every 6 hours, etc.) These events invoke the AWS Lambda function (3)
 3.	The AWS Lambda function is invoked initially when the CloudFormation stack is first deployed, and then subsequently by the scheduled events from Amazon EventBridge (2). A Kendra data source sync job is started. The Lambda function lists all the supported media files (FLAC, MP3, MP4, Ogg, WebM, AMR, or WAV) and associated metadata and transcribe options stored in the user provided S3 bucket (1).  
     1. Each new media file is added to the Amazon DynamboDB tracking table (4) and submitted to be transcribed by an Amazon Transcribe job.   
-    2. Any files that has been previously transcribed will be submitted for transcription again only if it has been modified since it was previously transcribed, or if associated transcribe options have been updated.  
+    2. Any file that has been previously transcribed will be submitted for transcription again only if it has been modified since it was previously transcribed, or if associated transcribe options have been updated.  
 The DynamoDB table (4) is updated to reflect the transcription status and last modified timestamp of each file. Any tracked files that no longer exist in the S3 bucket are removed from the DynamoDB table and from the Kendra index.
 If no new or updated files were discovered, the Kendra data source sync job is immediately stopped.  
 4.	The DynamoDB table holds a record for each media file with attributes to track transcription job names and status, and last modified timestamps. 
