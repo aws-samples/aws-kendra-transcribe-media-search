@@ -127,9 +127,7 @@ export default class Search extends React.Component<SearchProps, SearchState> {
           dataSourceNameLookup: getDataSourceNameLookup(dataSources),
         });
       } catch (e) {
-        this.setState({
-          error: e,
-        });
+        console.log("Error in datasource name lookup");
       }
     } else {
       // The SDK is not configured, use mock data
@@ -169,9 +167,7 @@ export default class Search extends React.Component<SearchProps, SearchState> {
 
       return dataSources;
     } catch (e) {
-      this.setState({
-        error: e,
-      });
+      console.log("Error in datasource name lookup");
     }
 
     return null;
@@ -219,7 +215,6 @@ export default class Search extends React.Component<SearchProps, SearchState> {
           faqResults: [],
           docResults: [],
           dataReady: true,
-          error: e,
         });
         return;
       }
