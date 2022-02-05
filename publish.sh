@@ -72,8 +72,8 @@ finderzip=finder_$timestamp.zip
 zip -r $tmpdir/$finderzip ./* -x "node_modules*"
 
 # get bucket region for owned accounts
-region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="us-east-1"
-[ -z "$region" -o "$region" == "None" ] && region=us-east-1;
+region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="ap-southeast-2"
+[ -z "$region" -o "$region" == "None" ] && region=ap-southeast-2;
 
 echo "Inline edit Cfn templates to replace "
 echo "   <ARTIFACT_BUCKET_TOKEN> with bucket name: $BUCKET"
@@ -114,8 +114,8 @@ done
 # get default media bucket region and warn if it is different than Cfn bucket region
 # media bucket must be in the same region as deployed stack (or Transcribe jobs fail)
 if [ ! -z "$SAMPLES_BUCKET" ]; then
-    dflt_media_region=$(aws s3api get-bucket-location --bucket $SAMPLES_BUCKET --query "LocationConstraint" --output text) || dflt_media_region="us-east-1"
-    [ -z "dflt_media_region" -o "dflt_media_region" == "None" ] && dflt_media_region=us-east-1;
+    dflt_media_region=$(aws s3api get-bucket-location --bucket $SAMPLES_BUCKET --query "LocationConstraint" --output text) || dflt_media_region="ap-southeast-2"
+    [ -z "dflt_media_region" -o "dflt_media_region" == "None" ] && dflt_media_region=ap-southeast-2;
     if [ "$dflt_media_region" != "$region" ]; then
         echo "WARNING!!! Default media bucket region ($dflt_media_region) does not match deployment bucket region ($region).. Media bucket ($SAMPLES_BUCKET) must be in same region as deployment bucket ($BUCKET)"
     fi
