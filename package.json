@@ -14,7 +14,7 @@
     "@types/lodash": "^4.14.171",
     "aws-sdk": "^2.954.0",
     "bootstrap": "^5.0.2",
-    "moment": "^2.29.1",
+    "moment": "^2.29.2",
     "rc-slider": "^9.7.2",
     "react": "^17.0.2",
     "react-bootstrap": "^1.6.1",
