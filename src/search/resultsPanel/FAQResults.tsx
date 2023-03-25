@@ -107,6 +107,13 @@ export default class FAQResults extends React.Component<
 
     const lastUpdated = selectMostRecentUpdatedTimestamp(attributes);
 
+    let offset = "";
+    const answerText = result.DocumentExcerpt!.Text;
+    const mm = answerText!.indexOf("[");
+    const nn = answerText!.indexOf("]", mm);
+    offset = answerText!.substring(mm+1,nn);
+    const startTime = Number(offset)
+
     return (
       <React.Fragment key={result.Id}>
         <div className="container-divider" />
@@ -147,6 +154,7 @@ export default class FAQResults extends React.Component<
                   queryResultItem={result}
                   attributes={attributes}
                   submitFeedback={submitFeedback}
+                  startTime={startTime}
                 />
               </div>
             </div>

@@ -10,7 +10,6 @@ import "../search.scss";
 import { Relevance } from "../constants";
 import ReactPlayer from 'react-player';
 
-
 interface DocumentResultsProps {
   results: Kendra.QueryResultItemList;
 
@@ -49,33 +48,45 @@ export default class DocumentResults extends React.Component<
                       documentFile[0]!.toUpperCase().endsWith("OGA") ||
                       documentFile[0]!.toUpperCase().endsWith("OGG") ||
                       documentFile[0]!.toUpperCase().endsWith("SPX") );
+    let ytvideo = 'ytauthor' in attributes;
+    
+    let offset = "";
+    const answerText = result.DocumentExcerpt!.Text;
+    const mm = answerText!.indexOf("[");
+    const nn = answerText!.indexOf("]", mm);
+    offset = answerText!.substring(mm+1,nn);
+    const startTime = Number(offset)
 
+    
     return (
       <div className="container-body" key={result.Id}>
         <ResultTitle
           queryResultItem={result}
           attributes={attributes}
           submitFeedback={submitFeedback}
+          startTime={startTime}
         />
         <ResultText
           className="small-margin-bottom"
           text={result.DocumentExcerpt!}
           lastUpdated={lastUpdated}
         />
-         {audioFile && (
+         {ytvideo && <ReactPlayer url={`${result.DocumentURI}&t=${startTime}s}`} controls={true} width='24em' height='13.5em' pip={true} />}
+         {(audioFile && !ytvideo) && (
           <div>
-            <audio src={result.DocumentURI} controls />
+            <ReactPlayer url={result.DocumentURI} controls={true} pip={true} />
           </div>
         )}
         {videoFile && (
           <div>
-            <ReactPlayer url={result.DocumentURI} controls={true} width='30%' height='30%' pip={true} />
+            <ReactPlayer url={result.DocumentURI} controls={true} width='24em' height='13.5em' pip={true} />
           </div>
         )}
         <ResultFooter
           queryResultItem={result}
           attributes={attributes}
           submitFeedback={submitFeedback}
+          startTime={startTime}
         />
       </div>
     );

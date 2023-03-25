@@ -13,6 +13,7 @@ import ResultFooter from "./components/ResultFooter";
 
 import "../search.scss";
 import ReactPlayer from 'react-player';
+import YouTube from 'react-youtube';
 
 
 const KENDRA_SUGGESTED_ANSWERS = "Amazon Kendra suggested answers";
@@ -117,6 +118,13 @@ export default class TopResults extends React.Component<
                         documentFile[0]!.toUpperCase().endsWith("OGG") ||
                         documentFile[0]!.toUpperCase().endsWith("SPX") );
 
+      let offset = "";
+      const answerText = result.DocumentExcerpt!.Text;
+      const mm = answerText!.indexOf("[");
+      const nn = answerText!.indexOf("]", mm);
+      offset = answerText!.substring(mm+1,nn);
+      const startTime = Number(offset)
+
       return (
         <React.Fragment key={result.Id}>
           <div className="container-body">
@@ -124,6 +132,7 @@ export default class TopResults extends React.Component<
               queryResultItem={result}
               attributes={attributes}
               submitFeedback={submitFeedback}
+              startTime={startTime}
             />
             {!_.isEmpty(topAnswer) && <h1>{topAnswer}</h1>}
             <ResultText
@@ -133,6 +142,9 @@ export default class TopResults extends React.Component<
              {audioFile && (
               <div>
                 <audio src={result.DocumentURI} controls />
+                <YouTube videoId="9-a9Y5THTYo" opts={{height: "30%", width: "30%", playerVars: {
+                  start: 100
+                }}} onReady={e => e.target.pauseVideo()}/>
               </div>
             )}
             {videoFile && (
@@ -144,6 +156,7 @@ export default class TopResults extends React.Component<
               queryResultItem={result}
               attributes={attributes}
               submitFeedback={submitFeedback}
+              startTime={startTime}
             />
           </div>
         </React.Fragment>

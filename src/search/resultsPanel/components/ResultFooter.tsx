@@ -14,7 +14,7 @@ const MAX_URI_LENGTH = 30;
 interface ResultFooterProps {
   queryResultItem: Kendra.QueryResultItem;
   attributes: any;
-
+  startTime: number;
   submitFeedback: (
     relevance: Relevance,
     resultItem: Kendra.QueryResultItem
@@ -30,7 +30,7 @@ export default class ResultFooter extends React.Component<
   };
 
   render() {
-    const { attributes, queryResultItem, submitFeedback } = this.props;
+    const { attributes, queryResultItem, submitFeedback, startTime } = this.props;
 
     const fileFormatName = attributes.FileFormat
       ? attributes.FileFormat.StringValue
@@ -50,8 +50,8 @@ export default class ResultFooter extends React.Component<
         </div>
       );
     }
-
     let sourceLink;
+    let isYTVideo = 'ytauthor' in attributes;
     const uri = queryResultItem.DocumentURI;
     if (uri && !_.isEmpty(uri)) {
       sourceLink = (
