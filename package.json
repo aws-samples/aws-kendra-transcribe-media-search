@@ -12,7 +12,7 @@
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^12.8.3",
     "@types/lodash": "^4.14.171",
-    "aws-sdk": "^2.954.0",
+    "aws-sdk": "^2.1354.0",
     "bootstrap": "^5.0.2",
     "moment": "^2.29.4",
     "rc-slider": "^9.7.2",
