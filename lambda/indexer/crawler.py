@@ -13,7 +13,7 @@ SUPPORTED_MEDIA_TYPES = ["mp3","mp4","wav","flac","ogg","amr","webm"]
 from common import logger
 from common import INDEX_ID, DS_ID, STACK_NAME
 from common import S3, TRANSCRIBE
-from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions, make_category_facetable
+from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions, make_category_facetable, create_newfacets_youtube
 from common import get_crawler_state, put_crawler_state, get_file_status, put_file_status
 from common import get_transcription_job
 from common import parse_s3url, get_s3jsondata
@@ -23,6 +23,7 @@ MEDIA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
 METADATA_FOLDER_PREFIX = os.environ['METADATA_FOLDER_PREFIX']
 TRANSCRIBEOPTS_FOLDER_PREFIX = os.environ['TRANSCRIBEOPTS_FOLDER_PREFIX']
 MAKE_CATEGORY_FACETABLE = os.environ['MAKE_CATEGORY_FACETABLE']
+INDEX_YOUTUBE_VIDEOS = os.environ['INDEX_YOUTUBE_VIDEOS']
 JOBCOMPLETE_FUNCTION = os.environ['JOBCOMPLETE_FUNCTION']
 TRANSCRIBE_ROLE = os.environ['TRANSCRIBE_ROLE']
 LAMBDA = boto3.client('lambda')
@@ -299,6 +300,10 @@ def lambda_handler(event, context):
     if (MAKE_CATEGORY_FACETABLE == 'true'):
         logger.info("Make _catetory facetable")
         make_category_facetable(indexId=INDEX_ID)
+    #Add YT attributes if INDEX_YOUTUBE_VIDEOS = true
+    if (INDEX_YOUTUBE_VIDEOS == 'true'):
+        logger.info("Create YT facets in  Kendra Index")
+        create_newfacets_youtube(indexId=INDEX_ID)
     # Start crawler, and set status in DynamoDB table
     logger.info("** Start crawler **")
     kendra_sync_job_id = start_kendra_sync_job(dsId=DS_ID, indexId=INDEX_ID)
