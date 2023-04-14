@@ -2,12 +2,38 @@ Description: >
   MediaSearch Solution - Indexer stack (v0.3.0)
 
 Resources:
-  MediaBucketNew:
+  MediaBucketNameDefault:
     Type: AWS::S3::Bucket
     Condition: CreateMediaBucket
     Description: S3 bucket name containing media files in the region where you are deploying if Media bucket not provided as input 
     Properties:
       BucketName: !Sub aws-ml-blog-${AWS::AccountId}-${AWS::Region}
+  
+  CallEmptyDefaultMediaBucketFunction:
+     Type: AWS::CloudFormation::CustomResource
+     Properties:
+       ServiceToken: !GetAtt EmptyDefaultMediaBucketFunction.Arn
+       MediaBucketNameDefault: !Sub aws-ml-blog-${AWS::AccountId}-${AWS::Region}
+       MediaBucketName: !Ref MediaBucket
+
+  EmptyDefaultMediaBucketFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
+        S3Key: !Join
+          - ''
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<EMPTYDEFAULTMEDIABUCKET_ZIPFILE>'
+      Handler: index.lambda_handler
+      Role: !GetAtt YTIndexerLambdaIAMRole.Arn
+      Runtime: python3.9
+      Timeout: 600
+      MemorySize: 1024
+      Environment: 
+        Variables:
+          LOG_LEVEL: INFO
+          YTDDB: !Ref YTMediaDDBQueueTable
 
   YTMediaDDBQueueTable: 
     Type: AWS::DynamoDB::Table
@@ -23,7 +49,7 @@ Resources:
           KeyType: "HASH"
 
 
-  LambdaIAMRole:
+  YTIndexerLambdaIAMRole:
     Type: 'AWS::IAM::Role'
     Properties:
       AssumeRolePolicyDocument:
@@ -48,12 +74,21 @@ Resources:
                   - !Join
                     - ''
                     - - 'arn:aws:s3:::'
-                      - !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+                      - !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
                       - /*
                   - !Join
                     - ''
                     - - 'arn:aws:s3:::'
-                      - !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+                      - !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Sub aws-ml-blog-${AWS::AccountId}-${AWS::Region}
+                      - /*
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Sub aws-ml-blog-${AWS::AccountId}-${AWS::Region}
               - Effect: Allow
                 Action:
                   - 'logs:CreateLogGroup'
@@ -90,7 +125,7 @@ Resources:
           - - '<ARTIFACT_PREFIX_TOKEN>'
             - '<YTINDEXER_ZIPFILE>'
       Handler: index.lambda_handler
-      Role: !GetAtt LambdaIAMRole.Arn
+      Role: !GetAtt YTIndexerLambdaIAMRole.Arn
       Runtime: python3.9
       Timeout: 600
       MemorySize: 1024
@@ -100,7 +135,7 @@ Resources:
           numberOfYTVideos: !If [IndexYTVideosYN, !Ref NumberOfYTVideos, 0]
           LOG_LEVEL: INFO
           ddbTableName: !Ref YTMediaDDBQueueTable
-          mediaBucket: !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+          mediaBucket: !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
           mediaFolderPrefix: !Ref MediaFolderPrefix
           metaDataFolderPrefix: !Ref MetadataFolderPrefix
 
@@ -160,11 +195,24 @@ Resources:
           - '-Index'
       RoleArn: !GetAtt KendraIndexRole.Arn
 
-  ##Attach Custom Data Source
+  ##Attach Custom Data Source when using existing Index
+  KendraMediaDSOwn:
+    Type: 'AWS::Kendra::DataSource'
+    Condition: OwnIndex
+    Properties: 
+      IndexId: !Ref ExistingIndexId
+      Name: !Join
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-DS'
+      Type: 'CUSTOM'
+
+  ##Attach Custom Data Source when using default Index
   KendraMediaDS:
     Type: 'AWS::Kendra::DataSource'
+    Condition: CreateIndex
     Properties: 
-      IndexId: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
+      IndexId: !GetAtt MediaKendraIndex.Id
       Name: !Join
         - ''
         - - !Ref 'AWS::StackName'
@@ -205,7 +253,7 @@ Resources:
                   - 's3:ListBucket'
                 Resource: !Sub
                   - 'arn:aws:s3:::${bucket}*'
-                  - bucket: !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+                  - bucket: !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
           PolicyName: TranscribeDataAccessPolicy
   
   CrawlerLambdaRole:
@@ -235,7 +283,7 @@ Resources:
               - Effect: Allow
                 Resource: !Sub
                   - 'arn:aws:s3:::${bucket}*'
-                  - bucket: !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+                  - bucket: !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
                 Action:
                   - 's3:GetObject'
                   - 's3:ListBucket'
@@ -274,7 +322,7 @@ Resources:
             - '<INDEXER_ZIPFILE>'
       Environment:
         Variables:
-          MEDIA_BUCKET: !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+          MEDIA_BUCKET: !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
           MEDIA_FOLDER_PREFIX: !Ref MediaFolderPrefix
           METADATA_FOLDER_PREFIX: !Ref MetadataFolderPrefix
           MAKE_CATEGORY_FACETABLE: !Ref MakeCategoryFacetable
@@ -282,7 +330,7 @@ Resources:
           TRANSCRIBEOPTS_FOLDER_PREFIX: !Ref OptionsFolderPrefix
           MEDIA_FILE_TABLE: !Ref MediaDynamoTable
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
-          DS_ID: !GetAtt KendraMediaDS.Id
+          DS_ID: !If [CreateIndex, !GetAtt KendraMediaDS.Id, !GetAtt KendraMediaDSOwn.Id] 
           STACK_NAME: !Ref AWS::StackName
           TRANSCRIBE_ROLE: !GetAtt 'TranscribeDataAccessRole.Arn'
           JOBCOMPLETE_FUNCTION: !Ref S3JobCompletionLambdaFunction
@@ -314,7 +362,7 @@ Resources:
               - Effect: Allow
                 Resource: !Sub
                   - 'arn:aws:s3:::${bucket}*'
-                  - bucket: !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+                  - bucket: !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
                 Action:
                   - 's3:GetObject'
                   - 's3:ListBucket'
@@ -346,7 +394,7 @@ Resources:
       Environment:
         Variables:
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
-          DS_ID: !GetAtt KendraMediaDS.Id
+          DS_ID: !If [CreateIndex, !GetAtt KendraMediaDS.Id, !GetAtt KendraMediaDSOwn.Id] 
           MEDIA_FILE_TABLE: !Ref MediaDynamoTable
           STACK_NAME: !Ref AWS::StackName
 
@@ -410,7 +458,7 @@ Resources:
       ServiceToken: !GetAtt S3CrawlLambdaFunction.Arn
       TriggerDependencies:
         - !Ref ExistingIndexId
-        - !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+        - !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
         - !Ref MediaFolderPrefix
         - !Ref MetadataFolderPrefix
         - !Ref OptionsFolderPrefix
@@ -422,11 +470,13 @@ Resources:
 
   CallYouTubeVideoIndexer:
     Type: AWS::CloudFormation::CustomResource
+    DependsOn: 
+      - CallEmptyDefaultMediaBucketFunction
     Properties:
       ServiceToken: !GetAtt YouTubeVideoIndexer.Arn
       TriggerDependencies:
         - !Ref ExistingIndexId
-        - !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+        - !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]
         - !Ref PlayListURL
         - !Ref NumberOfYTVideos
         - !Ref IndexYTVideos
@@ -519,9 +569,13 @@ Conditions:
   IndexYTVideosYN: !Equals 
     - !Ref IndexYTVideos
     - 'true'
+  OwnIndex: !Not 
+    - !Equals 
+      - !Ref ExistingIndexId
+      - ''
     
 Outputs:
   KendraIndexId:
     Value: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
   MediaBucketUsed:
-    Value: !If [CreateMediaBucket, !Ref MediaBucketNew, !Ref MediaBucket]
+    Value: !If [CreateMediaBucket, !Ref MediaBucketNameDefault, !Ref MediaBucket]

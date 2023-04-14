@@ -1,3 +1,6 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
 import os
 import sys
 import json
@@ -62,16 +65,19 @@ def downloadYTAudio(event,context,ytkey,url):
         statusCode=500
         body='ERROR: Could not download Audio from YouTube->'+str(e)
         logger.error(body)
+        return
     try:
         s3_client = boto3.client('s3', region) 
         logger.info('Uploading to s3 media bucket ->'+mediaFolderPrefix+audio_name+'.mp3')
         s3_client.upload_file(SAVE_PATH+'/'+audio_name+'.mp3', mediaBucket, mediaFolderPrefix+audio_name+'.mp3')
-        
     except Exception as e:
+        body='ERROR: Could not upload Audio to S3->'+str(e)
         logger.error(body)
+        return
     try:
         updateDDBTable(event,context,ytkey, yt.author, yt.length, yt.publish_date, yt.views,ytVideoURL, yt.title,url)
     except Exception as e:
+        body='ERROR: Could not update DynamoDB table YTMediaDDBQueueTable->'+str(e)
         logger.error(body)    
 
 def updateDDBTable(event,context,ytkey,author,video_length,publish_date,view_count,source_uri,title,url):

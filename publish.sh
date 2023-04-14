@@ -70,6 +70,12 @@ pytubellayerzip=pytubellayer_$timestamp.zip
 pushd lambdalayer/pytube
 zip -r $tmpdir/$pytubellayerzip .
 popd
+
+#emptydefaultmediabucket
+emptydefaultmediabucketzip=emptydefaultmediabucket_$timestamp.zip
+pushd lambda/emptydefaultmediabucket
+zip -r $tmpdir/$emptydefaultmediabucketzip *.py
+popd
 # ytindexer
 ytindexerzip=ytindexer_$timestamp.zip
 pushd lambda/ytindexer
@@ -100,6 +106,7 @@ echo "Inline edit Cfn templates to replace "
 echo "   <ARTIFACT_BUCKET_TOKEN> with bucket name: $BUCKET"
 echo "   <ARTIFACT_PREFIX_TOKEN> with prefix: $PREFIX"
 echo "   <PYTUBELLAYER_ZIPFILE> with zipfile: $pytubellayerzip"
+echo "   <EMPTYDEFAULTMEDIABUCKET_ZIPFILE> with zipfile: $emptydefaultmediabucketzip"
 echo "   <YTINDEXER_ZIPFILE> with zipfile: $ytindexerzip"
 echo "   <INDEXER_ZIPFILE> with zipfile: $indexerzip"
 echo "   <BUILDTRIGGER_ZIPFILE> with zipfile: $buildtriggerzip"
@@ -117,6 +124,7 @@ do
     sed -e "s%<ARTIFACT_BUCKET_TOKEN>%$BUCKET%g" | 
     sed -e "s%<ARTIFACT_PREFIX_TOKEN>%$PREFIX%g" |
     sed -e "s%<PYTUBELLAYER_ZIPFILE>%$pytubellayerzip%g" |
+    sed -e "s%<EMPTYDEFAULTMEDIABUCKET_ZIPFILE>%$emptydefaultmediabucketzip%g" |
     sed -e "s%<YTINDEXER_ZIPFILE>%$ytindexerzip%g" |
     sed -e "s%<INDEXER_ZIPFILE>%$indexerzip%g" |
     sed -e "s%<BUILDTRIGGER_ZIPFILE>%$buildtriggerzip%g" |
@@ -131,7 +139,7 @@ done
 
 S3PATH=s3://$BUCKET/$PREFIX
 echo "Copy $tmpdir/* to $S3PATH/"
-for f in msfinder.yaml msindexer.yaml $pytubellayerzip $ytindexerzip $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
+for f in msfinder.yaml msindexer.yaml $pytubellayerzip $emptydefaultmediabucketzip $ytindexerzip $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
 do
 aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} || exit 1
 done
