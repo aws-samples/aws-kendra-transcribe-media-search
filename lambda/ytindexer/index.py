@@ -7,6 +7,7 @@ import json
 import boto3
 import logging
 import cfnresponse
+import time
 
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
@@ -14,6 +15,9 @@ from urllib.parse import parse_qs
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 logger = logging.getLogger()
 logger.setLevel(LOG_LEVEL)
+
+# Number of retries for downloading YT videos
+retryceil=int(os.environ['RETRY'])
 
 sys.path.insert(1, '/tmp/')
 from pytube import YouTube
@@ -54,6 +58,7 @@ def exit_status(event, context, status):
     return status
 
 def downloadYTAudio(event,context,ytkey,url):
+    returnVal = 0
     ytVideoURL = ytcommonURL+ytkey
     yt = YouTube(ytVideoURL)
     logger.info('Downloading Youtube Audio for ->'+ytVideoURL)
@@ -65,7 +70,9 @@ def downloadYTAudio(event,context,ytkey,url):
         statusCode=500
         body='ERROR: Could not download Audio from YouTube->'+str(e)
         logger.error(body)
-        return
+        returnVal = 1
+        return returnVal
+
     try:
         s3_client = boto3.client('s3', region) 
         logger.info('Uploading to s3 media bucket ->'+mediaFolderPrefix+audio_name+'.mp3')
@@ -73,13 +80,19 @@ def downloadYTAudio(event,context,ytkey,url):
     except Exception as e:
         body='ERROR: Could not upload Audio to S3->'+str(e)
         logger.error(body)
-        return
+        returnVal = 2
+        return returnVal
+
     try:
-        updateDDBTable(event,context,ytkey, yt.author, yt.length, yt.publish_date, yt.views,ytVideoURL, yt.title,url)
+        returnVal = updateDDBTable(event,context,ytkey, yt.author, yt.length, yt.publish_date, yt.views,ytVideoURL, yt.title,url)
     except Exception as e:
         body='ERROR: Could not update DynamoDB table YTMediaDDBQueueTable->'+str(e)
-        logger.error(body)    
-
+        logger.error(body)
+        returnVal = 3
+        return returnVal
+ 
+    return returnVal
+    
 def updateDDBTable(event,context,ytkey,author,video_length,publish_date,view_count,source_uri,title,url):
     tableName = os.environ['ddbTableName']
     table = dynamodb.Table(tableName)
@@ -102,10 +115,10 @@ def updateDDBTable(event,context,ytkey,author,video_length,publish_date,view_cou
             logger.info("Youtube Video "+url+" has already been indexed")
         else:
             logger.error('ERROR: Could not index video '+url+' ->'+str(e))
-            return exit_status(event, context, cfnresponse.FAILED)
-
+            return 4
+            
     try:
-        json_dump = json.dumps({'Attributes': {'_source_uri':source_uri, '_created_at':publish_date.isoformat(),'video_length':video_length,'video_view_count':view_count,'ytauthor':author,'ytsource':source_uri},
+        json_dump = json.dumps({'Attributes': {'_source_uri':source_uri, '_category':'YouTube video', '_created_at':publish_date.isoformat(),'video_length':video_length,'video_view_count':view_count,'ytauthor':author,'ytsource':source_uri},
                             'Title': title
                             })
         encoded_string = json_dump.encode("utf-8")
@@ -116,6 +129,8 @@ def updateDDBTable(event,context,ytkey,author,video_length,publish_date,view_cou
         s3.Bucket(mediaBucket).put_object(Key=s3_path, Body=encoded_string)
     except Exception as e:
         logger.error("Could not upload the metadata json to S3" + str(e) )
+        return 5
+    return 0
 
 def lambda_handler(event, context):
     # Handle Delete event from Cloudformation custom resource
@@ -134,9 +149,21 @@ def lambda_handler(event, context):
     
     for url in ytPlayList.video_urls[:endoflist]:     
         logger.info("Checking Youtube Video "+url)
+        retrycount = 1
         videoid=ytvideoid(url)
         try:
-            downloadYTAudio(event,context,videoid,url)
+            while True:
+                returnVal = downloadYTAudio(event,context,videoid,url)
+                if (returnVal == 0 or retrycount > retryceil):
+                    break
+                else:
+                    # Sleep for 5 seconds before retries
+                    logger.info("Sleeping for 5 seconds and Retrying downloadYTAudio "+str(retrycount)+" out of " + str(retryceil))
+                    time.sleep(5)
+                    retrycount += 1
+            if (returnVal != 0):
+                logger.error("Failure while downloading YT Video, uploading to S3 and indexing into DynamoDB table. See errors above.")
+                return exit_status(event, context, cfnresponse.FAILED)
         except Exception as e:
             logger.error('ERROR: Could not index video '+url+' ->'+str(e))
             return exit_status(event, context, cfnresponse.FAILED)

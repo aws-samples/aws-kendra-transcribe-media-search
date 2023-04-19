@@ -10,6 +10,7 @@ import "../search.scss";
 import { Relevance } from "../constants";
 import ReactPlayer from 'react-player';
 
+
 interface DocumentResultsProps {
   results: Kendra.QueryResultItemList;
 
@@ -71,15 +72,15 @@ export default class DocumentResults extends React.Component<
           text={result.DocumentExcerpt!}
           lastUpdated={lastUpdated}
         />
-         {ytvideo && <ReactPlayer url={`${result.DocumentURI}&t=${startTime}s}`} controls={true} width='24em' height='13.5em' pip={true} />}
+         {ytvideo && <ReactPlayer url={`${result.DocumentURI}&t=${startTime}s}`} controls={true} width='30%' height='30%' pip={true} />}
          {(audioFile && !ytvideo) && (
           <div>
-            <ReactPlayer url={result.DocumentURI} controls={true} pip={true} />
+            <audio src={result.DocumentURI} controls />
           </div>
         )}
         {videoFile && (
           <div>
-            <ReactPlayer url={result.DocumentURI} controls={true} width='24em' height='13.5em' pip={true} />
+            <ReactPlayer url={result.DocumentURI} controls={true} width='30%' height='30%' pip={true} />
           </div>
         )}
         <ResultFooter

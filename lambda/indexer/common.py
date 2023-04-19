@@ -75,7 +75,7 @@ def create_newfacets_youtube(indexId):
                    'Name': 'ytauthor',
                    'Type': 'STRING_VALUE',
                    'Search': {
-                       'Facetable': True,
+                       'Facetable': False,
                        'Searchable': True,
                        'Displayable': True,
                        'Sortable': True
