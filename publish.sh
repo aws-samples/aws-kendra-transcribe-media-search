@@ -16,7 +16,7 @@
 # export AWS_DEFAULT_REGION=eu-west-1
 ##############################################################################################
 
-USAGE="$0 cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]"
+USAGE="$0 cfn_bucket cfn_prefix [public] [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]"
 
 BUCKET=$1
 [ -z "$BUCKET" ] && echo "Cfn bucket name is required parameter. Usage $USAGE" && exit 1
@@ -24,10 +24,19 @@ BUCKET=$1
 PREFIX=$2
 [ -z "$PREFIX" ] && echo "Prefix is required parameter. Usage $USAGE" && exit 1
 
-SAMPLES_BUCKET=$3
-SAMPLES_PREFIX=$4
-METADATA_PREFIX=$5
-OPTIONS_PREFIX=$6
+ACL=$3
+if [ "$ACL" == "public" ]; then
+  echo "Published S3 artifacts will be acessible by public (read-only)"
+  PUBLIC=true
+else
+  echo "Published S3 artifacts will NOT be acessible by public."
+  PUBLIC=false
+fi
+
+SAMPLES_BUCKET=$4
+SAMPLES_PREFIX=$5
+METADATA_PREFIX=$6
+OPTIONS_PREFIX=$7
 
 # Add trailing slash to prefix if needed
 [[ "${PREFIX}" != */ ]] && PREFIX="${PREFIX}/"
@@ -134,8 +143,16 @@ S3PATH=s3://$BUCKET/$PREFIX
 echo "Copy $tmpdir/* to $S3PATH/"
 for f in msfinder.yaml msindexer.yaml $pytubellayerzip $ytindexerzip $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
 do
-aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} || exit 1
+  aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} || exit 1
 done
+
+if $PUBLIC; then
+  echo "Setting public read ACLs on published artifacts"
+  for f in msfinder.yaml msindexer.yaml $pytubellayerzip $ytindexerzip $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
+  do
+    aws s3api put-object-acl --acl public-read --bucket ${BUCKET} --key ${S3PATH}${f}
+  done
+fi
 
 # get default media bucket region and warn if it is different than Cfn bucket region
 # media bucket must be in the same region as deployed stack (or Transcribe jobs fail)

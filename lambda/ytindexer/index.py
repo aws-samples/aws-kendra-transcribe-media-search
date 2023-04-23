@@ -54,7 +54,11 @@ def exit_status(event, context, status):
     if ('ResourceType' in event):
         if (event['ResourceType'].find('CustomResource') > 0):
             logger.info("cfnresponse:" + status)
-            cfnresponse.send(event, context, status, {}, None)
+            if ('PhysicalResourceId' in event):
+                resid=event['PhysicalResourceId']
+                cfnresponse.send(event, context, status, {}, resid)
+            else:
+               cfnresponse.send(event, context, status, {}, None)
     return status
 
 def downloadYTAudio(event,context,ytkey,url):
@@ -132,10 +136,23 @@ def updateDDBTable(event,context,ytkey,author,video_length,publish_date,view_cou
         return 5
     return 0
 
+def empty_bucket(mediaBucket,event, context):
+    if mediaBucket:
+        try:
+            s3 = boto3.resource('s3')
+            bucket = s3.Bucket(mediaBucket)
+            bucket.objects.all().delete()
+        except Exception as e:
+            logger.info("Exception while deleting files ->"+str(e))
+            return exit_status(event, context, cfnresponse.FAILED)
+
 def lambda_handler(event, context):
     # Handle Delete event from Cloudformation custom resource
     # In all other cases start crawler
+    logger.info("event->"+str(event))
     if (('RequestType' in event) and (event['RequestType'] == 'Delete')):
+        # Empty Bucket before delete
+        empty_bucket(mediaBucket,event, context)
         logger.info("Cfn Delete event - no action - return Success")
         return exit_status(event, context, cfnresponse.SUCCESS)
         
@@ -158,8 +175,8 @@ def lambda_handler(event, context):
                     break
                 else:
                     # Sleep for 5 seconds before retries
-                    logger.info("Sleeping for 5 seconds and Retrying downloadYTAudio "+str(retrycount)+" out of " + str(retryceil))
-                    time.sleep(5)
+                    logger.info("Sleeping for 2 seconds and Retrying downloadYTAudio "+str(retrycount)+" out of " + str(retryceil))
+                    time.sleep(2)
                     retrycount += 1
             if (returnVal != 0):
                 logger.error("Failure while downloading YT Video, uploading to S3 and indexing into DynamoDB table. See errors above.")

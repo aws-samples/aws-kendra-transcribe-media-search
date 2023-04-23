@@ -104,7 +104,7 @@ Resources:
           mediaBucket: !Ref YTMediaBucket
           mediaFolderPrefix: !Ref MediaFolderPrefix
           metaDataFolderPrefix: !Ref MetadataFolderPrefix
-          RETRY: 5
+          RETRY: 10
 
   ##Create the Role needed to create a Kendra Index
   KendraIndexRole:
