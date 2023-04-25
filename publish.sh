@@ -150,7 +150,8 @@ if $PUBLIC; then
   echo "Setting public read ACLs on published artifacts"
   for f in msfinder.yaml msindexer.yaml $pytubellayerzip $ytindexerzip $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
   do
-    aws s3api put-object-acl --acl public-read --bucket ${BUCKET} --key ${S3PATH}${f}
+    echo s3://${BUCKET}/${PREFIX}${f}
+    aws s3api put-object-acl --acl public-read --bucket ${BUCKET} --key ${PREFIX}${f}
   done
 fi
 

@@ -5,7 +5,6 @@ Resources:
   # This MediaBucket only holds the downloaded YouTube videos
   YTMediaBucket:
     Type: AWS::S3::Bucket
-    Condition: IndexYTVideosYN
     Description: Create a bucket to hold downloaded YouTube videos if IndexYTVideos is true
   
 
