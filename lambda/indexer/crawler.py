@@ -317,16 +317,10 @@ def lambda_handler(event, context):
     s3files=[]
 
      
-    if (INDEX_YOUTUBE_VIDEOS == 'true'):
-        if (MEDIA_BUCKET):
-            BUCKET_LIST=[MEDIA_BUCKET,YTMEDIA_BUCKET]
-        else:
-            BUCKET_LIST=[YTMEDIA_BUCKET]
+    if (MEDIA_BUCKET):
+        BUCKET_LIST=[MEDIA_BUCKET,YTMEDIA_BUCKET]
     else:
-        if (MEDIA_BUCKET):
-            BUCKET_LIST=[MEDIA_BUCKET]
-        else:
-            return exit_status(event, context, cfnresponse.FAILED)
+        BUCKET_LIST=[YTMEDIA_BUCKET]
     
     for bucket in BUCKET_LIST: 
         try:

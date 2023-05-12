@@ -157,6 +157,10 @@ def lambda_handler(event, context):
         return exit_status(event, context, cfnresponse.SUCCESS)
         
     playListURL = os.environ['playListURL']
+    if not playListURL:
+        logger.info("Play List URL is empty. Exiting - return Success")
+        return exit_status(event, context, cfnresponse.SUCCESS)
+
     region = os.environ['AWS_REGION']
     numberOfYTVideos = int(os.environ['numberOfYTVideos'])
     
