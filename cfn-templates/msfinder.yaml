@@ -1,5 +1,5 @@
 Description: >
-  MediaSearch Solution - Finder stack (v0.2.0)
+  MediaSearch Solution - Finder stack (v0.3.0)
   
 Resources:
   ##Create Cognito Userpool for Authentication
@@ -438,7 +438,7 @@ Parameters:
     Type: CommaDelimitedList
     Default: "<SAMPLES_BUCKET>"
     Description: >-
-      (Required) A comma-delimited list of media bucket names - may include wildcards. Needed to support presigned URLs used to access media files contained in search results.
+      (Required) A comma-delimited list of media bucket names - may include wildcards. (Fetch this value from the CFN output for the corresponding Indexer). Needed to support presigned URLs used to access media files contained in search results.
   AdminEmail:
     Type: String
     Description: 'To enable authentication please provide a valid email address for the admin user. This email address will be used for setting the admin password. This email will receive the temporary password for the admin user.'

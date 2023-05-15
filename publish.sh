@@ -16,7 +16,7 @@
 # export AWS_DEFAULT_REGION=eu-west-1
 ##############################################################################################
 
-USAGE="$0 cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]"
+USAGE="$0 cfn_bucket cfn_prefix [public] [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]"
 
 BUCKET=$1
 [ -z "$BUCKET" ] && echo "Cfn bucket name is required parameter. Usage $USAGE" && exit 1
@@ -24,10 +24,19 @@ BUCKET=$1
 PREFIX=$2
 [ -z "$PREFIX" ] && echo "Prefix is required parameter. Usage $USAGE" && exit 1
 
-SAMPLES_BUCKET=$3
-SAMPLES_PREFIX=$4
-METADATA_PREFIX=$5
-OPTIONS_PREFIX=$6
+ACL=$3
+if [ "$ACL" == "public" ]; then
+  echo "Published S3 artifacts will be acessible by public (read-only)"
+  PUBLIC=true
+else
+  echo "Published S3 artifacts will NOT be acessible by public."
+  PUBLIC=false
+fi
+
+SAMPLES_BUCKET=$4
+SAMPLES_PREFIX=$5
+METADATA_PREFIX=$6
+OPTIONS_PREFIX=$7
 
 # Add trailing slash to prefix if needed
 [[ "${PREFIX}" != */ ]] && PREFIX="${PREFIX}/"
@@ -43,6 +52,15 @@ else
   echo "Using existing bucket: $BUCKET"
 fi
 
+# get bucket region for owned accounts
+region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="us-east-1"
+[ -z "$region" -o "$region" == "None" ] && region=us-east-1;
+accountid=`aws sts get-caller-identity --query "Account" --output text`
+
+# Assign default values
+[ -z "$SAMPLES_PREFIX" ] && SAMPLES_PREFIX="artifacts/mediasearch/sample-media/"
+[ -z "$METADATA_PREFIX" ] && METADATA_PREFIX="artifacts/mediasearch/sample-metadata/"
+
 echo -n "Make temp dir: "
 timestamp=$(date "+%Y%m%d_%H%M")
 tmpdir=/tmp/mediasearch
@@ -50,7 +68,23 @@ tmpdir=/tmp/mediasearch
 mkdir -p $tmpdir
 pwd
 
-echo "Create timestamped zipfile for lambdas"
+# Install pytube
+[ -d lambdalayer ] && rm -fr lambdalayer
+mkdir -p lambdalayer/pytube/python
+pip3 install pytube -t lambdalayer/pytube/python
+
+echo "Create timestamped zipfile for lambdas and layers"
+# pytube-llayer
+pytubellayerzip=pytubellayer_$timestamp.zip
+pushd lambdalayer/pytube
+zip -r $tmpdir/$pytubellayerzip .
+popd
+
+# ytindexer
+ytindexerzip=ytindexer_$timestamp.zip
+pushd lambda/ytindexer
+zip -r $tmpdir/$ytindexerzip *.py
+popd
 # indexer
 indexerzip=indexer_$timestamp.zip
 pushd lambda/indexer
@@ -71,13 +105,12 @@ echo "Create zipfile for AWS Amplify/CodeCommit"
 finderzip=finder_$timestamp.zip
 zip -r $tmpdir/$finderzip ./* -x "node_modules*"
 
-# get bucket region for owned accounts
-region=$(aws s3api get-bucket-location --bucket $BUCKET --query "LocationConstraint" --output text) || region="us-east-1"
-[ -z "$region" -o "$region" == "None" ] && region=us-east-1;
 
 echo "Inline edit Cfn templates to replace "
 echo "   <ARTIFACT_BUCKET_TOKEN> with bucket name: $BUCKET"
 echo "   <ARTIFACT_PREFIX_TOKEN> with prefix: $PREFIX"
+echo "   <PYTUBELLAYER_ZIPFILE> with zipfile: $pytubellayerzip"
+echo "   <YTINDEXER_ZIPFILE> with zipfile: $ytindexerzip"
 echo "   <INDEXER_ZIPFILE> with zipfile: $indexerzip"
 echo "   <BUILDTRIGGER_ZIPFILE> with zipfile: $buildtriggerzip"
 echo "   <FINDER_ZIPFILE> with zipfile: $finderzip"
@@ -93,6 +126,8 @@ do
    cat cfn-templates/$template | 
     sed -e "s%<ARTIFACT_BUCKET_TOKEN>%$BUCKET%g" | 
     sed -e "s%<ARTIFACT_PREFIX_TOKEN>%$PREFIX%g" |
+    sed -e "s%<PYTUBELLAYER_ZIPFILE>%$pytubellayerzip%g" |
+    sed -e "s%<YTINDEXER_ZIPFILE>%$ytindexerzip%g" |
     sed -e "s%<INDEXER_ZIPFILE>%$indexerzip%g" |
     sed -e "s%<BUILDTRIGGER_ZIPFILE>%$buildtriggerzip%g" |
     sed -e "s%<FINDER_ZIPFILE>%$finderzip%g" |
@@ -106,10 +141,19 @@ done
 
 S3PATH=s3://$BUCKET/$PREFIX
 echo "Copy $tmpdir/* to $S3PATH/"
-for f in msfinder.yaml msindexer.yaml $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
+for f in msfinder.yaml msindexer.yaml $pytubellayerzip $ytindexerzip $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
 do
-aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} --acl public-read || exit 1
+  aws s3 cp ${tmpdir}/${f} ${S3PATH}${f} || exit 1
 done
+
+if $PUBLIC; then
+  echo "Setting public read ACLs on published artifacts"
+  for f in msfinder.yaml msindexer.yaml $pytubellayerzip $ytindexerzip $indexerzip $buildtriggerzip $finderzip $tokenenablerzip
+  do
+    echo s3://${BUCKET}/${PREFIX}${f}
+    aws s3api put-object-acl --acl public-read --bucket ${BUCKET} --key ${PREFIX}${f}
+  done
+fi
 
 # get default media bucket region and warn if it is different than Cfn bucket region
 # media bucket must be in the same region as deployed stack (or Transcribe jobs fail)

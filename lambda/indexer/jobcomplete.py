@@ -57,7 +57,13 @@ def get_metadata_attributes(metadata):
     if meta_attributes:
         if type(meta_attributes) is dict:
             for key, value in meta_attributes.items():
-                reserved_attributes = ["_data_source_id", "_data_source_sync_job_execution_id", "_source_uri"]
+                # if ytsource exists then it must accept _source_uri from metadata
+                if 'ytsource' in meta_attributes:
+                    reserved_attributes = ["_data_source_id", "_data_source_sync_job_execution_id"]
+                else:
+                    reserved_attributes = ["_data_source_id", "_data_source_sync_job_execution_id", "_source_uri"]
+                logger.info("reserved_attributes")
+                logger.info(reserved_attributes)
                 if key not in reserved_attributes:
                     kendra_type, kendra_value = get_kendra_type_and_value(key, value)
                     kendra_attr = {
@@ -115,6 +121,15 @@ def get_document(dsId, indexId, s3url, item, text):
     if metadata.get("Attributes"):
         logger.info(f"Set 'Attributes'")
         metadata_attributes = get_metadata_attributes(metadata)
+        if any('ytsource' in d.values() for d in metadata_attributes):
+            logger.info("YouTube Media being indexed")
+            remove = '_source_uri'
+            newAttributeList=[]
+            for ele in document['Attributes']:
+                if '_source_uri' not in ele['Key']:
+                    newAttributeList.append(ele)
+            document['Attributes'] = newAttributeList
+        
         document["Attributes"] += metadata_attributes
     if metadata.get("AccessControlList"):
         logger.info(f"Set 'AccessControlList'")

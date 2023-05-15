@@ -49,20 +49,31 @@ export default class DocumentResults extends React.Component<
                       documentFile[0]!.toUpperCase().endsWith("OGA") ||
                       documentFile[0]!.toUpperCase().endsWith("OGG") ||
                       documentFile[0]!.toUpperCase().endsWith("SPX") );
+    let ytvideo = 'ytauthor' in attributes;
+    
+    let offset = "";
+    const answerText = result.DocumentExcerpt!.Text;
+    const mm = answerText!.indexOf("[");
+    const nn = answerText!.indexOf("]", mm);
+    offset = answerText!.substring(mm+1,nn);
+    const startTime = Number(offset)
 
+    
     return (
       <div className="container-body" key={result.Id}>
         <ResultTitle
           queryResultItem={result}
           attributes={attributes}
           submitFeedback={submitFeedback}
+          startTime={startTime}
         />
         <ResultText
           className="small-margin-bottom"
           text={result.DocumentExcerpt!}
           lastUpdated={lastUpdated}
         />
-         {audioFile && (
+         {ytvideo && <ReactPlayer url={`${result.DocumentURI}&t=${startTime}s}`} controls={true} width='30%' height='30%' pip={true} />}
+         {(audioFile && !ytvideo) && (
           <div>
             <audio src={result.DocumentURI} controls />
           </div>
@@ -76,6 +87,7 @@ export default class DocumentResults extends React.Component<
           queryResultItem={result}
           attributes={attributes}
           submitFeedback={submitFeedback}
+          startTime={startTime}
         />
       </div>
     );

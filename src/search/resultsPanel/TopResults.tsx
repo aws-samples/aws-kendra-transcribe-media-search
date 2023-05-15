@@ -116,6 +116,14 @@ export default class TopResults extends React.Component<
                         documentFile[0]!.toUpperCase().endsWith("OGA") ||
                         documentFile[0]!.toUpperCase().endsWith("OGG") ||
                         documentFile[0]!.toUpperCase().endsWith("SPX") );
+      let ytvideo = 'ytauthor' in attributes;
+
+      let offset = "";
+      const answerText = result.DocumentExcerpt!.Text;
+      const mm = answerText!.indexOf("[");
+      const nn = answerText!.indexOf("]", mm);
+      offset = answerText!.substring(mm+1,nn);
+      const startTime = Number(offset)
 
       return (
         <React.Fragment key={result.Id}>
@@ -124,12 +132,14 @@ export default class TopResults extends React.Component<
               queryResultItem={result}
               attributes={attributes}
               submitFeedback={submitFeedback}
+              startTime={startTime}
             />
             {!_.isEmpty(topAnswer) && <h1>{topAnswer}</h1>}
             <ResultText
               text={answer.TextWithHighlightsValue}
               lastUpdated={lastUpdated}
             />
+             {ytvideo && <ReactPlayer url={`${result.DocumentURI}&t=${startTime}s}`} controls={true} width='30%' height='30%' pip={true} />}
              {audioFile && (
               <div>
                 <audio src={result.DocumentURI} controls />
@@ -144,6 +154,7 @@ export default class TopResults extends React.Component<
               queryResultItem={result}
               attributes={attributes}
               submitFeedback={submitFeedback}
+              startTime={startTime}
             />
           </div>
         </React.Fragment>

@@ -9,7 +9,7 @@ import { Relevance } from "../../constants";
 interface ResultTitleProps {
   queryResultItem: Kendra.QueryResultItem;
   attributes: any;
-
+  startTime: number;
   submitFeedback: (
     relevance: Relevance,
     resultItem: Kendra.QueryResultItem
@@ -22,10 +22,11 @@ export default class ResultTitle extends React.Component<ResultTitleProps, {}> {
   };
 
   render() {
-    const { queryResultItem } = this.props;
+    const { attributes, queryResultItem, startTime } = this.props;
 
     // title is not guaranteed to exist, show nothing if that's the case
     let resultTitle: React.ReactNode = null;
+    
     if (
       queryResultItem.DocumentTitle &&
       !_.isEmpty(queryResultItem.DocumentTitle.Text)
@@ -40,6 +41,7 @@ export default class ResultTitle extends React.Component<ResultTitleProps, {}> {
     }
 
     const uri = queryResultItem.DocumentURI;
+    
     if (uri && !_.isEmpty(uri)) {
       resultTitle = (
         <a

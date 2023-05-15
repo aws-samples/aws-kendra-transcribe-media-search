@@ -2,15 +2,14 @@
 
 This solution makes audio and video media content searchable in an Amazon Kendra index.
 
-It uses Amazon Transcribe to convert media audio tracks to text, and Amazon Kendra to provide intelligent search so that your users can find the content they are looking for, 
-even when it's embedded in the sound track of your audio or video files. 
+It uses Amazon Transcribe to convert media audio tracks to text, and Amazon Kendra to provide intelligent search so that your users can find the content they are looking for, even when it's embedded in the sound track of your audio or video files. 
 The solution also provides an enhanced Kendra query application which lets users play relevant sections of original media files returned in query results, directly from the search page.
 
 ![MediaSearch](images/MediaSearchImage.png)
 
 The MediaSearch solution has two components.  
-- The first component, the MediaSearch indexer, finds and transcribes audio and video files stored in an S3 bucket. It prepares the transcriptions by embedding time markers at the start of each sentence, and it indexes each prepared transcription in a new or existing Kendra index. It runs for the first time when you install it, and subsequently it runs on an interval that you specify, maintaining the Kendra index to reflect any new, modified, or deleted files. You can optionally provide additional metadata for your media files to add faceting and filtering to your searches. You can also optionally provide additional options files to customize how Amazon Transcribe transcribes your media files - use custom vocabulary, custom language models, or take advantage of other Amazon Transcribe features.    
-- The second component, the MediaSearch finder, is a sample web search client that you use to search for content in your Kendra index. It has all the features of a standard Kendra search page, but it also includes in-line embedded media players in the search result, so you can not only see the relevant section of the transcript, but also play the corresponding section from the original media without navigating away from the search page.  
+- The first component, the MediaSearch indexer, finds and transcribes audio and video files stored in an Amazon Simple Storage Service (Amazon S3) bucket. The Indexer can also index YouTube media from a YouTube playlist as audio files and transcribe these audio files. It prepares the transcriptions by embedding time markers at the start of each sentence, and it indexes each prepared transcription in a new or existing Amazon Kendra index. The Index runs the first time when you install it, and subsequently runs on an interval that you specify, maintaining the index to reflect any new, modified, or deleted files. You can optionally provide additional metadata for your media files to add faceting and filtering to your searches. You can also optionally provide additional options files to customize how Amazon Transcribe transcribes your media files - use custom vocabulary, custom language models, or take advantage of other Amazon Transcribe features.    
+- The second component, the MediaSearch finder, is a sample web search client that you use to search for content in your Amazon Kendra index. It has all the features of a standard Amazon Kendra search page, but it also includes in-line embedded media players(including a YouTube Player) in the search result, so you can not only see the relevant section of the transcript, but also play the corresponding section from the original media (i.e., audio files and video files in your Media Bucket or a YouTube URL) without navigating away from the search page.  
 
 ![Finder](images/Finder.png)
 
@@ -19,19 +18,17 @@ See the blog post to get started: [Making your audio and video files searchable 
 ## Architecture
 ![Finder](images/Architecture.png)
 The MediaSearch solution has an event driven serverless computing architecture, depicted in the diagram above.
-1.	You provide an Amazon S3 bucket containing the audio and video files you want to index and search.
-2.	Amazon EventBridge generates events on a repeating interval (e.g. every 2 hours, every 6 hours, etc.) These events invoke the AWS Lambda function (3)
-3.	The AWS Lambda function is invoked initially when the CloudFormation stack is first deployed, and then subsequently by the scheduled events from Amazon EventBridge (2). A Kendra data source sync job is started. The Lambda function lists all the supported media files (FLAC, MP3, MP4, Ogg, WebM, AMR, or WAV) and associated metadata and transcribe options stored in the user provided S3 bucket (1).  
-    1. Each new media file is added to the Amazon DynamboDB tracking table (4) and submitted to be transcribed by an Amazon Transcribe job.   
-    2. Any file that has been previously transcribed will be submitted for transcription again only if it has been modified since it was previously transcribed, or if associated transcribe options have been updated.  
-The DynamoDB table (4) is updated to reflect the transcription status and last modified timestamp of each file. Any tracked files that no longer exist in the S3 bucket are removed from the DynamoDB table and from the Kendra index.
-If no new or updated files were discovered, the Kendra data source sync job is immediately stopped.  
-4.	The DynamoDB table holds a record for each media file with attributes to track transcription job names and status, and last modified timestamps. 
-5.	As each Amazon Transcribe job completes, Amazon EventBridge generates a Job Complete event which invokes an instance of Lambda function (6). 
-6.	The AWS Lambda function processes the transcription job output, generating a modified transcription that has a time marker inserted at the start of each sentence. This modified transcription is indexed in Amazon Kendra (7), and the job status for the file is updated in DynamoDB table (4). When the last file has been transcribed and indexed, the Kendra data source sync job is stopped.
-7.	The Kendra index is populated and kept in sync with the transcriptions of all the media files in the S3 bucket monitored by the MediaSearch indexer component, integrated with any additional content from any other provisioned data sources. The media transcriptions are used by Kendra’s intelligent query processing, allowing users to find content and answers to their questions.
-8.	The sample ‘finder’ client application enhances users’ search experience by embedding an inline media player with each Kendra answer that is based on a transcribed media file. The client uses the time markers embedded in the transcript to start media playback at the relevant section of the original media file.
-9.	Optionally Cognito user pool is used to authenticate users and for OpenID token based access control. The authentication and access control options are controlled by input parameters while building the CloudFormation stack for Finder.
+1. You provide an Amazon S3 bucket containing the audio and video files you want to index and search. This is also known as the **MediaBucket**. Leave this blank if you do not want to index media from your **MediaBucket**.
+2. You also provide your YouTube playlist URL and the number of videos to index from the YouTube playlist. Ensure that you comply with the [YouTube Terms of Service](https://www.youtube.com/static?template=terms). The YTIndexer will index the latest files from the YouTube playlist. i.e. if the number of videos is set to *5*, then the YTIndexer will index the *5* latest videos in the playlist. Any YouTube video indexed prior is ignored from being indexed.
+3. An AWS Lambda function fetches the YouTube videos from the playlist as audio (mp3 files) into the YTMediaBucket and also creates a metadata file in the **MetadataFolderPrefix** location with metadata for the YouTube video (2). The YouTube *videoid* along with the related metadata are recorded in a DynamoDB table (**YTMediaDDBQueueTable**) (3).
+4. [Amazon EventBridge](https://aws.amazon.com/eventbridge/) generates events on a repeating interval (e.g. every 2 hours, every 6 hours, etc.) These events invoke the AWS Lambda function (**S3CrawlLambdaFunction**) (4).
+5. An [AWS Lambda](http://aws.amazon.com/lambda) function is invoked initially when the CloudFormation stack is first deployed, and then subsequently by the scheduled events from Amazon EventBridge (4). The **S3CrawlLambdaFunction** crawls through the **MediaBucket** and the YTMediabucket and starts a Kendra data source sync job. The Lambda function lists all the supported media files (FLAC, MP3, MP4, Ogg, WebM, AMR, or WAV) and associated metadata and transcribe options stored in the user provided S3 bucket (1).
+6. Each new file is added to another [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) tracking table and submitted to be transcribed by a Transcribe job. Any file that has been previously transcribed is submitted for transcription again only if it has been modified since it was previously transcribed, or if associated Transcribe options have been updated. The DynamoDB table (6) is updated to reflect the transcription status and last modified timestamp of each file. Any tracked files that no longer exist in the S3 bucket are removed from the DynamoDB table and from the Amazon Kendra index. If no new or updated files are discovered, the Amazon Kendra data source sync job is immediately stopped. The DynamoDB table holds a record for each media file with attributes to track transcription job names and status, and last modified timestamps.
+7. As each Transcribe job completes, EventBridge generates a Job Complete event, which invokes an instance of another Lambda function(**S3JobCompletionLambdaFunction**).
+8. The Lambda function processes the transcription job output, generating a modified transcription that has a time marker inserted at the start of each sentence. This modified transcription is indexed in Amazon Kendra, and the job status for the file is updated in the DynamoDB table. When the last file has been transcribed and indexed, the Amazon Kendra data source sync job is stopped.
+9. The index is populated and kept in sync with the transcriptions of all the media files in the S3 bucket monitored by the MediaSearch indexer component, integrated with any additional content from any other provisioned data sources. The media transcriptions are used by Amazon Kendra’s intelligent query processing, which allows users to find content and answers to their questions.
+10. The sample *finder* client application enhances users’ search experience by embedding an inline media player with each Amazon Kendra answer that is based on a transcribed media file. The client uses the time markers embedded in the transcript to start media playback at the relevant section of the original media file.
+11. Optionally a Cognito user pool is used to authenticate users and to support OpenID token based access control, as determined by the Authentication and access control parameters provided when the finder client application stack is deployed.
 
 ## Add Kendra metadata
 You can add metadata - additional information about a media file - using a metadata file. Each metadata file is associated with an indexed media file.  Adding metadata allows you to populate default (reserved) Kendra index attributes (such as _category), or populate any additional [custom document attributes](https://docs.aws.amazon.com/kendra/latest/dg/custom-attributes.html) that you have already added to your index. Document attributes can be used for [filtering queries](https://docs.aws.amazon.com/kendra/latest/dg/filtering.html#search-filtering).
@@ -71,11 +68,11 @@ The **EnableAccessTokens** parameter of the Finder CloudFormation template enabl
 
 ## Indexer
 
-The Indexer crawler and jobcomplete lambda function code is in the lambda directory.
+To download audio for the YouTube videos, the Indexer uses the [pytube](https://pypi.org/project/pytube/) python package. The pytube package is installed into the `lambdalayer` folder and uploaded as a Lambda Layer. Additionally the YouTube Indexer, Indexer, crawler and jobcomplete lambda function code are maintained in the `lambda` directory.
 
 ## Finder
 
-The Finder application is based on the Kendra sample search application, and is in the src directory. It is built during deployment as an Amplify Console application. The initial application build and deployment takes about 10 minutes.  
+The Finder application is based on the Kendra sample search application, and is in the `src` directory. It is built during deployment as an Amplify Console application. The initial application build and deployment takes about 10 minutes.  
   
 If the application doesn’t open within 10-15 minutes after deploying the Finder stack, then you troubleshoot the problem: 
 - Open AWS Amplify in the AWS console
@@ -85,8 +82,8 @@ If the application doesn’t open within 10-15 minutes after deploying the Finde
 
 ## CloudFormation Templates
 
-The cfn-templates directory contains CloudFormation templates used to deploy the MediaSearch Indexer and Finder applications
-- msindexer.yaml: Deploys the indexer, including (optionally) a Kendra index, a DynamoDB table to keep track of the state of media files, Lambda functions, IAM roles, EventBridge Events etc.
+The `cfn-templates` directory contains CloudFormation templates used to deploy the MediaSearch Indexer and Finder applications
+- msindexer.yaml: Deploys an indexer for all files, a YouTube indexer to index and download audio for YouTube files, including (optionally) a Kendra index, a DynamoDB table to keep track of the state of media files, a DynamoDB table to keep track of YouTube videoid and their metadata, Lambda functions, IAM roles, EventBridge Events etc.
 - msfinder.yaml: Deploys the finder web application using AWS Amplify, including a CodeCommit repository, an AWS Amplify console application, and IAM roles
 The templates contain tokens for bucket names, zipfile names, etc. The publish scipt, publish.sh, is used to replace these tokens and deploy templates and code artifacts to a deployment bucket
 
@@ -101,13 +98,14 @@ E.g. to deploy in Ireland run `export AWS_DEFAULT_REGION=eu-west-1` before runni
 
 Run the script with up to 6 parameters:
 ```
-./publish.sh cfn_bucket cfn_prefix [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]
+./publish.sh cfn_bucket cfn_prefix [public] [dflt_media_bucket] [dflt_media_prefix] [dflt_metadata_prefix] [dflt_options_prefix]
 
 - cfn_bucket: name of S3 bucket to deploy CloudFormation templates and code artifacts. if bucket does not exist it will be created.
 - cfn_prefix: artifacts will be copied to the path specified by this prefix (path/to/artifacts/)
+- public (Optional): If ACL is enabled and Public access is allowed on your cfn_bucket then the uploaded deployment artefacts are made public.
 - dflt_media_bucket: (Optional) sets the default media bucket in the template.. for example, use this default installations to index sample files in the bucket you provide. Must be in same region as cfn_bucket.
-- dflt_media_prefix: (Optional) default path to (sample) media files in the dflt_media_bucket
-- dflt_metadata_prefix: (Optional) default prefix for (sample) Kendra metadata files in the dflt_media_bucket
+- dflt_media_prefix: (Optional) default path to (sample) media files in the dflt_media_bucket. If not mentioned is set to artifacts/mediasearch/sample-media/
+- dflt_metadata_prefix: (Optional) default prefix for (sample) Kendra metadata files in the dflt_media_bucket.  If not mentioned is set to artifacts/mediasearch/sample-metadata/
 - dflt_options_prefix: (Optional) default prefix for (sample) Transcribe options files in the dflt_media_bucket
 ```
 
@@ -125,17 +123,15 @@ If you specify a value for dflt_media_bucket and it is in a different AWS region
 ```
 WARNING!!! Default media bucket region (us-east-1) does not match deployment bucket region (eu-west-1).. Media bucket (bobs-dflt_media_bucket) must be in same region as deployment bucket (bobs-cfn_bucket)
 ```
-If you see this warning, run the publish script again with different buckets, to resolve the problem. If you deploy a stack using a media bucket in a 
-region other than the region you deploy in, your media files will not be transcribed or indexed.
+If you see this warning, run the publish script again with different buckets, to resolve the problem. If you deploy a stack using a media bucket in a region other than the region you deploy in, your media files will not be transcribed or indexed.
   
 ## Learn More
 
-See the blog post for much more information, including:
+See the [blog post](https://aws.amazon.com/blogs/machine-learning/make-your-audio-and-video-files-searchable-using-amazon-transcribe-and-amazon-kendra/) for much more information, including:
 - How to easily deploy MediaSearch using publically published templates and sample files in us-east-1
 - Cost information
 - Tutorial for getting started and testing with the sample files
 - How to monitor and troubleshot problems
-[Making your audio and video files searchable using Amazon Transcribe and Amazon Kendra](TODO)
 
 
 ## Contribute
