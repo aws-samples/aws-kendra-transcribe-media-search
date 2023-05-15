@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
 ## [0.3.0] - 2021-12-16
 ### Added
 - YouTube support for MediaSearch solution
@@ -17,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/aws-samples/amazon-transcribe-live-call-analytics/compare/v0.3.0...develop
-[0.3.0]: https://github.com/aws-samples/amazon-transcribe-live-call-analytics/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/aws-samples/amazon-transcribe-live-call-analytics/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/aws-samples/amazon-transcribe-live-call-analytics/releases/tag/v0.1.0
+[Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.0...develop
+[0.3.0]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/releases/tag/v0.1.0
