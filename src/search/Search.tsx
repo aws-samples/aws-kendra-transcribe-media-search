@@ -231,10 +231,12 @@ export default class Search extends React.Component<SearchProps, SearchState> {
     if (results && results.ResultItems) {
       results.ResultItems.forEach((result: Kendra.QueryResultItem) => {
         let excerpt_page_no = undefined;
+        let attributes = Object();
         result.DocumentAttributes!.forEach((attr: Kendra.DocumentAttribute) => {
           if (attr.Key === "_excerpt_page_number") {
             excerpt_page_no = attr.Value.LongValue;
           }
+          attributes[attr.Key] = attr.Value;
         });
         if (!isNullOrUndefined(this.props.s3) && result.DocumentURI) {
           let mediafile = false;
@@ -251,7 +253,8 @@ export default class Search extends React.Component<SearchProps, SearchState> {
               result.DocumentURI.toUpperCase().endsWith(".OGV") || 
               result.DocumentURI.toUpperCase().endsWith(".OGX") || 
               result.DocumentURI.toUpperCase().endsWith(".WEBM") || 
-              result.DocumentURI.toUpperCase().endsWith(".MP4")
+              result.DocumentURI.toUpperCase().endsWith(".MP4") ||
+              result.DocumentURI.includes("youtube")
               ) {
             //Assume mediafile
             mediafile = true;
@@ -292,7 +295,10 @@ export default class Search extends React.Component<SearchProps, SearchState> {
           if (result.DocumentURI && excerpt_page_no) {
             result.DocumentURI = result.DocumentURI + "#page=" + excerpt_page_no;
           }
-          if (mediafile){
+          if (result.DocumentURI && 'ytauthor' in attributes) {
+            result.DocumentURI = `${result.DocumentURI}&t=${offset}s`;
+          }
+          if (mediafile && !('ytauthor' in attributes)){
             result.DocumentURI = result.DocumentURI + "#t=" + offset;
           }
         }

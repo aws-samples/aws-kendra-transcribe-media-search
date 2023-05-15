@@ -13,16 +13,18 @@ SUPPORTED_MEDIA_TYPES = ["mp3","mp4","wav","flac","ogg","amr","webm"]
 from common import logger
 from common import INDEX_ID, DS_ID, STACK_NAME
 from common import S3, TRANSCRIBE
-from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions, make_category_facetable
+from common import start_kendra_sync_job, stop_kendra_sync_job_when_all_done, process_deletions, make_category_facetable, create_newfacets_youtube
 from common import get_crawler_state, put_crawler_state, get_file_status, put_file_status
 from common import get_transcription_job
 from common import parse_s3url, get_s3jsondata
 
 MEDIA_BUCKET = os.environ['MEDIA_BUCKET']
+YTMEDIA_BUCKET = os.environ['YTMEDIA_BUCKET']
 MEDIA_FOLDER_PREFIX = os.environ['MEDIA_FOLDER_PREFIX']
 METADATA_FOLDER_PREFIX = os.environ['METADATA_FOLDER_PREFIX']
 TRANSCRIBEOPTS_FOLDER_PREFIX = os.environ['TRANSCRIBEOPTS_FOLDER_PREFIX']
 MAKE_CATEGORY_FACETABLE = os.environ['MAKE_CATEGORY_FACETABLE']
+INDEX_YOUTUBE_VIDEOS = os.environ['INDEX_YOUTUBE_VIDEOS']
 JOBCOMPLETE_FUNCTION = os.environ['JOBCOMPLETE_FUNCTION']
 TRANSCRIBE_ROLE = os.environ['TRANSCRIBE_ROLE']
 LAMBDA = boto3.client('lambda')
@@ -299,6 +301,10 @@ def lambda_handler(event, context):
     if (MAKE_CATEGORY_FACETABLE == 'true'):
         logger.info("Make _catetory facetable")
         make_category_facetable(indexId=INDEX_ID)
+    #Add YT attributes if INDEX_YOUTUBE_VIDEOS = true
+    if (INDEX_YOUTUBE_VIDEOS == 'true'):
+        logger.info("Create YT facets in  Kendra Index")
+        create_newfacets_youtube(indexId=INDEX_ID)
     # Start crawler, and set status in DynamoDB table
     logger.info("** Start crawler **")
     kendra_sync_job_id = start_kendra_sync_job(dsId=DS_ID, indexId=INDEX_ID)
@@ -309,21 +315,30 @@ def lambda_handler(event, context):
         
     # process S3 media objects
     s3files=[]
-    try:
-        logger.info("** List and process S3 media objects **")
-        [s3mediaobjects, s3metadataobjects, s3transcribeoptsobjects] = list_s3_objects(MEDIA_BUCKET, MEDIA_FOLDER_PREFIX, METADATA_FOLDER_PREFIX, TRANSCRIBEOPTS_FOLDER_PREFIX)
-        for s3url in s3mediaobjects.keys():
-            process_s3_media_object(STACK_NAME, MEDIA_BUCKET, s3url, s3mediaobjects.get(s3url), s3metadataobjects.get(s3url), s3transcribeoptsobjects.get(s3url), kendra_sync_job_id, TRANSCRIBE_ROLE)
-            s3files.append(s3url)
-        # detect and delete indexed docs where files that are no longer in the source bucket location
-        # reasons: file deleted, or indexer config updated to crawl a new location
-        logger.info("** Process deletions **")
-        process_deletions(DS_ID, INDEX_ID, kendra_sync_job_id=kendra_sync_job_id, s3files=s3files)
-    except Exception as e:
-        logger.error("Exception: " + str(e))
-        put_crawler_state(STACK_NAME, 'STOPPED')            
-        stop_kendra_sync_job_when_all_done(dsId=DS_ID, indexId=INDEX_ID)
-        return exit_status(event, context, cfnresponse.FAILED)
+
+     
+    if (MEDIA_BUCKET):
+        BUCKET_LIST=[MEDIA_BUCKET,YTMEDIA_BUCKET]
+    else:
+        BUCKET_LIST=[YTMEDIA_BUCKET]
+    
+    for bucket in BUCKET_LIST: 
+        try:
+            logger.info("** List and process S3 media objects **")
+            
+            [s3mediaobjects, s3metadataobjects, s3transcribeoptsobjects] = list_s3_objects(bucket, MEDIA_FOLDER_PREFIX, METADATA_FOLDER_PREFIX, TRANSCRIBEOPTS_FOLDER_PREFIX)
+            for s3url in s3mediaobjects.keys():
+                process_s3_media_object(STACK_NAME, bucket, s3url, s3mediaobjects.get(s3url), s3metadataobjects.get(s3url), s3transcribeoptsobjects.get(s3url), kendra_sync_job_id, TRANSCRIBE_ROLE)
+                s3files.append(s3url)
+            # detect and delete indexed docs where files that are no longer in the source bucket location
+            # reasons: file deleted, or indexer config updated to crawl a new location
+            logger.info("** Process deletions **")
+            process_deletions(DS_ID, INDEX_ID, kendra_sync_job_id=kendra_sync_job_id, s3files=s3files)
+        except Exception as e:
+            logger.error("Exception: " + str(e))
+            put_crawler_state(STACK_NAME, 'STOPPED')            
+            stop_kendra_sync_job_when_all_done(dsId=DS_ID, indexId=INDEX_ID)
+            return exit_status(event, context, cfnresponse.FAILED)
 
     # Stop crawler
     logger.info("** Stop crawler **")

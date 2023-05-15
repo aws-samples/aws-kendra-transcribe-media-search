@@ -67,7 +67,51 @@ def make_category_facetable(indexId):
                }
            ])
     logger.info(f"response:" + json.dumps(resp))
-    
+
+def create_newfacets_youtube(indexId):
+    logger.info(f"create_newfacets_youtube(indexId={indexId})")
+    resp = KENDRA.update_index(Id=indexId, 
+               DocumentMetadataConfigurationUpdates=[{
+                   'Name': 'ytauthor',
+                   'Type': 'STRING_VALUE',
+                   'Search': {
+                       'Facetable': False,
+                       'Searchable': True,
+                       'Displayable': True,
+                       'Sortable': True
+                   }
+               },{
+                   'Name': 'ytsource',
+                   'Type': 'STRING_VALUE',
+                   'Search': {
+                       'Facetable': False,
+                       'Searchable': False,
+                       'Displayable': False,
+                       'Sortable': False
+                   }
+            },{
+                   'Name': 'video_length',
+                   'Type': 'LONG_VALUE',
+                   'Search': {
+                       'Facetable': False,
+                       'Searchable': False,
+                       'Displayable': False,
+                       'Sortable': True
+                   }
+            },{
+                   'Name': 'video_view_count',
+                   'Type': 'LONG_VALUE',
+                   'Search': {
+                       'Facetable': False,
+                       'Searchable': False,
+                       'Displayable': False,
+                       'Sortable': True
+                   }
+            }
+           ])
+    logger.info(f"response:" + json.dumps(resp))
+
+
 def is_kendra_sync_running(dsId, indexId):
     # Check if sync job is still running
     resp = KENDRA.list_data_source_sync_jobs(Id=dsId, IndexId=indexId)
