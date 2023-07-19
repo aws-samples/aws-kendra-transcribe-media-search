@@ -77,7 +77,7 @@ if [[ `pip3 list --path lambdalayer/pytube/python | grep pytube | awk '{print $2
   replacewith=`head -287 lambdalayer/pytube/python/pytube/cipher.py| tail -1 | sed 's/;//g'`
   lines=`wc -l lambdalayer/pytube/python/pytube/cipher.py | awk '{print $1}'`
   head -286 lambdalayer/pytube/python/pytube/cipher.py > cipher.py && echo $replacewith >> cipher.py && tail -`expr $lines - 287` lambdalayer/pytube/python/pytube/cipher.py >> cipher.py
-  mv cipher.py lambdalayer/pytube/python/pytube/cipher.py
+  sed 's/raise RegexMatchError(caller="get_transform_object", pattern=pattern)/return []/g' cipher.py > lambdalayer/pytube/python/pytube/cipher.py
 fi
 echo "Create timestamped zipfile for lambdas and layers"
 # pytube-llayer
