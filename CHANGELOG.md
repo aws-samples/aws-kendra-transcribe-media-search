@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2023-07-21
+### Added
+- Additional temporary fix to resolve YouTube playlist download failures by patching cipher.py for pytube version 15.0.0 - See PR #31
+
 ## [0.3.1] - 2023-07-06
 ### Added
-- Temporary fix to resolve YouTube playlist download failures by patching cipher.py for pytube version 15.0.0
+- Temporary fix to resolve YouTube playlist download failures by patching cipher.py for pytube version 15.0.0 - See PR #30
 
 ## [0.3.0] - 2023-05-16
 ### Added
@@ -23,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.1...develop
+[Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.2...develop
+[0.3.2]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.1.0...v0.2.0
