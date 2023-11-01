@@ -434,6 +434,8 @@ Resources:
 Parameters:
   KendraIndexId:
     Type: String
+    AllowedPattern : ".+"
+    ConstraintDescription: "Kendra Index id cannot be blank"
   MediaBucketNames:
     Type: CommaDelimitedList
     Default: "<SAMPLES_BUCKET>"
