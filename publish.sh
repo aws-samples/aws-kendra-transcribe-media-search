@@ -56,9 +56,23 @@ accountid=`aws sts get-caller-identity --query "Account" --output text`
 [ -z "$SAMPLES_PREFIX" ] && SAMPLES_PREFIX="artifacts/mediasearch/sample-media/"
 [ -z "$METADATA_PREFIX" ] && METADATA_PREFIX="artifacts/mediasearch/sample-metadata/"
 
+echo -n "Make temp dir: "
+timestamp=$(date "+%Y%m%d_%H%M")
+tmpdir=/tmp/mediasearch
+[ -d /tmp/mediasearch ] && rm -fr /tmp/mediasearch
+mkdir -p $tmpdir
+pwd
+
 # Config
 LAYERS_DIR=$PWD/layers
 FINDER_APP_DIR=$PWD/finderapp
+
+echo "Create zipfile for AWS Amplify/CodeCommit"
+pushd $FINDER_APP_DIR
+finderzip=finder_$timestamp.zip
+zip -r $tmpdir/$finderzip ./* -x "node_modules*"
+popd
+
 # Install yt_dlp and any other pip layers
 echo "------------------------------------------------------------------------------"
 echo "Installing Python packages for AWS Lambda Layers if a requirements.txt is present"
@@ -94,9 +108,6 @@ rm -rf $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl.tar.xz
 cp $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg $LAYERS_DIR/ffmpeg/bin
 rm -rf $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl
 
-# Remove node_modules* directory
-rm -rf node_modules*
-
 [ -z "$SAMPLES_BUCKET" ] || echo "   <SAMPLES_BUCKET> with bucket name: $SAMPLES_BUCKET"
 [ -z "$SAMPLES_PREFIX" ] || echo "   <SAMPLES_PREFIX> with prefix: $SAMPLES_PREFIX"
 [ -z "$METADATA_PREFIX" ] || echo "   <METADATA_PREFIX> with prefix: $METADATA_PREFIX"
@@ -104,9 +115,8 @@ rm -rf node_modules*
 
 templates_dir=./cfn-templates
 mkdir -p $templates_dir/out
-accesstime=`date -v-1d +%Y%m%d`"0000.00"
-[ -d "$LAYERS_DIR" ] && find $LAYERS_DIR -exec touch -a -m -t$accesstime {} \;
-[ -d "$FINDER_APP_DIR" ] && find $FINDER_APP_DIR -exec touch -a -m -t$accesstime {} \;
+[ -d "$LAYERS_DIR" ] && find $LAYERS_DIR -exec touch -d "$(date +%Y-%m-%d)T00:00:00"  '{}' \;
+[ -d "$FINDER_APP_DIR" ] && find $FINDER_APP_DIR -exec touch -d "$(date +%Y-%m-%d)T00:00:00" '{}' \;
 # Initialize Output
 Outputs=""
 
@@ -121,7 +131,11 @@ do
   sed -e "s%<SAMPLES_PREFIX>%$SAMPLES_PREFIX%g" |
   sed -e "s%<METADATA_PREFIX>%$METADATA_PREFIX%g" |
   sed -e "s%<OPTIONS_PREFIX>%$OPTIONS_PREFIX%g" |
+  sed -e "s%<FINDER_ZIPFILE>%$finderzip%g" |
   sed -e "s%<REGION>%$region%g" >  deploy_$template
+
+  S3PATH=s3://$BUCKET/$PREFIX/
+  aws s3 cp ${tmpdir}/${finderzip} ${S3PATH}${finderzip}
 
   s3_template=s3://${BUCKET}/${PREFIX}/${template}
   https_template="https://${BUCKET}.s3.us-west-2.amazonaws.com/${PREFIX}/${template}"
@@ -137,7 +151,7 @@ do
   echo "Validating template"
   aws cloudformation validate-template --template-url ${https_template} > /dev/null || exit 1
   templateName=${template%.*}
-  templateNameUpper=`echo "$templateName" | awk '{print toupper}'`
+  templateNameUpper=`echo "$templateName" | awk '{print toupper($0)}'`
   Outputs=$Outputs${templateNameUpper}" Template URL - $https_template;"
   
   Outputs=$Outputs${templateNameUpper}" CF Launch URL - https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create/review?templateURL=$https_template&stackName=MediaSearch-${templateNameUpper};"

@@ -224,7 +224,12 @@ Resources:
     Properties:
       Code:
         BranchName: main
-        S3: ../finderapp
+        S3:
+          Bucket: '<ARTIFACT_BUCKET_TOKEN>'
+          Key: !Join
+          - ''
+          - - '<ARTIFACT_PREFIX_TOKEN>'
+            - '<FINDER_ZIPFILE>'
       RepositoryName: !Join
         - ''
         - - !Ref 'AWS::StackName'
