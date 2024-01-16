@@ -224,12 +224,7 @@ Resources:
     Properties:
       Code:
         BranchName: main
-        S3:
-          Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-          Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<FINDER_ZIPFILE>'
+        S3: ../finderapp
       RepositoryName: !Join
         - ''
         - - !Ref 'AWS::StackName'
@@ -334,12 +329,7 @@ Resources:
       Runtime: python3.8
       Role: !GetAtt 'MediaLambdaRole.Arn'
       Timeout: 300
-      Code:
-        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-        S3Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<BUILDTRIGGER_ZIPFILE>'
+      Code: ../lambda/build-trigger
       Environment:
         Variables:
           APP_ID: !GetAtt AmplifyApp.AppId
@@ -396,12 +386,7 @@ Resources:
       Role: !GetAtt 'TokenEnablerLambdaRole.Arn'
       Timeout: 900
       MemorySize: 1024
-      Code:
-        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-        S3Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<TOKEN_ENABLER_ZIPFILE>'
+      Code: ../lambda/token-enabler
       Environment:
         Variables:
           INDEX_ID: !Ref KendraIndexId

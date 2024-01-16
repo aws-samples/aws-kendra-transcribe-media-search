@@ -1,0 +1,2 @@
+yt-dlp 
+urllib3==1.26.9

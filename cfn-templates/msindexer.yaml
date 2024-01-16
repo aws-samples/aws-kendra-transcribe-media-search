@@ -65,33 +65,47 @@ Resources:
                   - 'dynamodb:*'
                 Resource: !GetAtt YTMediaDDBQueueTable.Arn
   
-  PytubeLambdalayer:
-    Type: AWS::Lambda::LayerVersion
+  YTDLPLambdalayer:
+    Type: "AWS::Lambda::LayerVersion"
     Properties:
-      Content:
-        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-        S3Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<PYTUBELLAYER_ZIPFILE>'
-      Description: Layer with pytube package required to download YT Videos
-      LayerName: pytube-llayer
+      Content: ../layers/yt_dlp
+      CompatibleRuntimes:
+        - python3.11      
+      Description: Layer with yt_dlp package required to download YT Videos
       LicenseInfo: MIT
+
+  QBusinessModelLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      Content: ../layers/qbusiness_boto3_model
+      CompatibleRuntimes:
+        - python3.11
+      Description: Layer with AmazonQ boto3 model
+      LicenseInfo: MIT
+      
+  FFMPEGLambdalayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      Content: ../layers/ffmpeg
+      CompatibleRuntimes:
+        - python3.11      
+      Description: Layer with ffmpeg package required to support yt_dlp functions on Lambda
+      LicenseInfo: MIT
+
+
+
       
   YouTubeVideoIndexer:
     Type: 'AWS::Lambda::Function'
     Properties:
       Layers: 
-          - !Ref PytubeLambdalayer
-      Code:
-        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-        S3Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<YTINDEXER_ZIPFILE>'
+          - !Ref YTDLPLambdalayer
+          - !Ref FFMPEGLambdalayer
+          - !Ref QBusinessModelLayer
+      Code: ../lambda/ytindexer
       Handler: index.lambda_handler
       Role: !GetAtt YTIndexerLambdaIAMRole.Arn
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 600
       MemorySize: 1024
       Environment: 
@@ -304,12 +318,7 @@ Resources:
       Role: !GetAtt 'CrawlerLambdaRole.Arn'
       Timeout: 900
       MemorySize: 1024
-      Code:
-        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-        S3Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<INDEXER_ZIPFILE>'
+      Code: ../lambda/indexer
       Environment:
         Variables:
           MEDIA_BUCKET: !Ref MediaBucket
@@ -387,12 +396,7 @@ Resources:
       Role: !GetAtt 'JobCompleteLambdaRole.Arn'
       Timeout: 300
       MemorySize: 1024
-      Code:
-        S3Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-        S3Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<INDEXER_ZIPFILE>'
+      Code: ../lambda/indexer
       Environment:
         Variables:
           INDEX_ID: !If [CreateIndex, !GetAtt MediaKendraIndex.Id, !Ref ExistingIndexId]
@@ -464,11 +468,11 @@ Resources:
         - !Ref MediaFolderPrefix
         - !Ref MetadataFolderPrefix
         - !Ref OptionsFolderPrefix
-        - '<INDEXER_ZIPFILE>'
+        - !Ref S3CrawlLambdaFunction
+        - !Ref S3JobCompletionLambdaFunction
         - !Ref PlayListURL
         - !Ref NumberOfYTVideos
-        #- !Ref IndexYTVideos
-        - '<YTINDEXER_ZIPFILE>'
+        - !Ref YouTubeVideoIndexer
 
   CallYouTubeVideoIndexer:
     Type: AWS::CloudFormation::CustomResource
@@ -479,8 +483,7 @@ Resources:
         - !Ref MediaBucket
         - !Ref PlayListURL
         - !Ref NumberOfYTVideos
-        #- !Ref IndexYTVideos
-        - '<YTINDEXER_ZIPFILE>'
+        - !Ref YouTubeVideoIndexer
 
 Parameters:
   MediaBucket:
@@ -519,13 +522,6 @@ Parameters:
     Default: ''
     Type: String
     Description: "Leave this empty to create a new index or provide the index *id* (not name) of the existing Kendra index to be used"
-  #IndexYTVideos:
-  #  Description: Do you want to index YouTubevideos ?
-  #  Type: String
-  #  Default: 'true'
-  #  AllowedValues:
-  #    - 'true'
-  #    - 'false'
   PlayListURL:
     Type: String
     Description: 'Enter the YouTube playlist URL. Defaulted to This is my Architecture PlayList on Youtube'
@@ -553,12 +549,9 @@ Metadata:
             - Label:
                 default: Index YouTube Videos
               Parameters:
-                  #- IndexYTVideos
                   - PlayListURL
                   - NumberOfYTVideos
 
-
-    
 Conditions:
   BlankPlayList: !Equals
     - !Ref PlayListURL
@@ -573,9 +566,6 @@ Conditions:
   CreateIndex: !Equals 
     - !Ref ExistingIndexId
     - ''
-#  IndexYTVideosYN: !Equals 
-#    - !Ref IndexYTVideos
-#    - 'true'
 
   OwnIndex: !Not 
     - !Equals 
