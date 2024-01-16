@@ -1,5 +1,7 @@
 node_modules
 build
 .env
-lambdalayer
 .DS_Store
+cfn-templates/out
+layers/ffmpeg/bin
+layers/yt_dlp/python
