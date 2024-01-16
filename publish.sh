@@ -138,7 +138,7 @@ do
   aws s3 cp ${tmpdir}/${finderzip} ${S3PATH}${finderzip}
 
   s3_template=s3://${BUCKET}/${PREFIX}/${template}
-  https_template="https://${BUCKET}.s3.us-west-2.amazonaws.com/${PREFIX}/${template}"
+  https_template="https://${BUCKET}.s3.${region}.amazonaws.com/${PREFIX}/${template}"
   echo "S3 Template " $s3_template
   echo "HTTPS Template " $https_template
   aws cloudformation package \
