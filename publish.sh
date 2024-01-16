@@ -77,25 +77,36 @@ popd
 echo "------------------------------------------------------------------------------"
 echo "Installing Python packages for AWS Lambda Layers if a requirements.txt is present"
 echo "------------------------------------------------------------------------------"
+
+#pip3 version check. Minimum pip3 version 23
+pip --version | grep -q "^pip 23"
+if [ $? -eq 0 ]; then
+  echo "pip version is greater than or equal to 23.0.0"
+  pip3 install --upgrade pip
+else
+  echo "pip version is less than 23.0.0"
+fi
+
 if [ -d "$LAYERS_DIR" ]; then
   LAYERS=$(ls $LAYERS_DIR)
   pushd $LAYERS_DIR
   for layer in $LAYERS; do
-    echo "Installing packages for: $layer. Ignore errors where there is no pip package install for the layer"
-    # ref docs: https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-pycache
-    pip install \
-    --quiet \
-    --platform manylinux2014_x86_64 \
-    --target=package \
-    --implementation cp \
-    --python-version 3.10 \
-    --only-binary=:all: \
-    --no-compile \
-    --requirement ${layer}/requirements.txt \
-    --target=${layer}/python 2>&1 | \
-      grep -v "WARNING: Target directory"
+    if [ -f ${layer}/requirements.txt ]; then
+      echo "Installing packages for: $layer"
+      # ref docs: https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-pycache
+      pip3 install \
+      --quiet \
+      --platform manylinux2014_x86_64 \
+      --target=package \
+      --implementation cp \
+      --python-version 3.10 \
+      --only-binary=:all: \
+      --no-compile \
+      --requirement ${layer}/requirements.txt \
+      --target=${layer}/python 2>&1 | \
+        grep -v "WARNING: Target directory"
     echo "Done installing dependencies for $layer"
-    
+    fi
   done
   popd
 else

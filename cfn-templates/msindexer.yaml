@@ -74,15 +74,7 @@ Resources:
       Description: Layer with yt_dlp package required to download YT Videos
       LicenseInfo: MIT
 
-#  QBusinessModelLayer:
-#    Type: "AWS::Lambda::LayerVersion"
-#    Properties:
-#      Content: ../layers/qbusiness_boto3_model
-#      CompatibleRuntimes:
-#        - python3.11
-#      Description: Layer with AmazonQ boto3 model
-#      LicenseInfo: MIT
-      
+     
   FFMPEGLambdalayer:
     Type: "AWS::Lambda::LayerVersion"
     Properties:
@@ -98,7 +90,6 @@ Resources:
       Layers: 
           - !Ref YTDLPLambdalayer
           - !Ref FFMPEGLambdalayer
-#          - !Ref QBusinessModelLayer
       Code: ../lambda/ytindexer
       Handler: index.lambda_handler
       Role: !GetAtt YTIndexerLambdaIAMRole.Arn
