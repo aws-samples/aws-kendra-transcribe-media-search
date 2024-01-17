@@ -113,10 +113,11 @@ else
   echo "Directory $LAYERS_DIR does not exist. Skipping"
 fi
 # Specific to ffmpeg binary to be made avaialble in Lambda runtime
+mkdir -p $LAYERS_DIR/ffmpeg/bin
 wget -P $LAYERS_DIR/ffmpeg https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
 tar xvf $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl.tar.xz -C $LAYERS_DIR/ffmpeg
-rm -rf $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl.tar.xz
-cp $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg $LAYERS_DIR/ffmpeg/bin
+rm -rf $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl.tar.xz*
+cp $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl/bin/ffmpeg $LAYERS_DIR/ffmpeg/bin/
 rm -rf $LAYERS_DIR/ffmpeg/ffmpeg-master-latest-linux64-gpl
 
 [ -z "$SAMPLES_BUCKET" ] || echo "   <SAMPLES_BUCKET> with bucket name: $SAMPLES_BUCKET"
