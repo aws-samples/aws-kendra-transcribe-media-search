@@ -1,5 +1,7 @@
-node_modules
-build
-.env
-lambdalayer
+finderapp/node_modules
+finderapp/build
+finderapp/.env
 .DS_Store
+cfn-templates/out
+layers/ffmpeg/bin/ffmpeg
+layers/yt_dlp/python
