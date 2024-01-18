@@ -171,6 +171,16 @@ do
 done
 popd
 
+if $PUBLIC; then
+  echo "Setting public read ACLs on published artifacts"
+  files=$(aws s3api list-objects --bucket ${BUCKET} --prefix ${PREFIX} --query "(Contents)[].[Key]" --output text)
+  for file in $files
+    do
+    echo aws s3api put-object-acl --acl public-read --bucket ${BUCKET} --key $file
+    aws s3api put-object-acl --acl public-read --bucket ${BUCKET} --key $file
+    done
+fi
+
 # Trim trailing :
 Outputs="${Outputs%;}"
 echo
