@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2024-01-18
+### Fixed
+- Using yt_dlp python package and ffmpeg binary to download and extract audio from YouTube (PR #35)
+
 ## [0.3.3] - 2023-11-02
 ### Fixed
 - Added check to force entry of KendraIndexID in Finder stack (PR #32)
@@ -31,7 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.3...develop
+[Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.4...develop
+[0.3.4]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.0...v0.3.1
