@@ -122,6 +122,7 @@ def lambda_handler(event, context):
     numberOfYTVideos = int(os.environ['numberOfYTVideos'])
     ydl_opts = {
             'format': 'bestaudio',
+            'cachedir': SAVE_PATH,
             'outtmpl': SAVE_PATH+'/%(id)s.%(ext)s',
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
