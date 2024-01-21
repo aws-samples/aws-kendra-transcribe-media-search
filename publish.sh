@@ -82,9 +82,9 @@ echo "--------------------------------------------------------------------------
 pip --version | grep -q "^pip 23"
 if [ $? -eq 0 ]; then
   echo "pip version is greater than or equal to 23.0.0"
-  pip3 install --upgrade pip
 else
   echo "pip version is less than 23.0.0"
+  pip3 install --upgrade pip
 fi
 
 if [ -d "$LAYERS_DIR" ]; then
@@ -92,6 +92,9 @@ if [ -d "$LAYERS_DIR" ]; then
   pushd $LAYERS_DIR
   for layer in $LAYERS; do
     if [ -f ${layer}/requirements.txt ]; then
+      echo "Deleting python and bin folder if it exists"
+      [ -d ${layer}/python ] && rm -rf ${layer}/python
+      [ -d ${layer}/bin ] && rm -rf ${layer}/bin
       echo "Installing packages for: $layer"
       # ref docs: https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-pycache
       pip3 install \

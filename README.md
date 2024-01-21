@@ -68,7 +68,7 @@ The **EnableAccessTokens** parameter of the Finder CloudFormation template enabl
 
 ## Indexer
 
-To download audio for the YouTube videos, the Indexer uses the [pytube](https://pypi.org/project/pytube/) python package. The pytube package is installed into the `lambdalayer` folder and uploaded as a Lambda Layer. Additionally the YouTube Indexer, Indexer, crawler and jobcomplete lambda function code are maintained in the `lambda` directory.
+To download audio for the YouTube videos, the Indexer uses the [yt-dlp](https://github.com/yt-dlp/yt-dlp) python package. The yt_dlp package is installed into the `layers/yt_dlp` folder and uploaded as a Lambda Layer. Additionally the YouTube Indexer, Indexer, crawler and jobcomplete lambda function code are maintained in the `lambda` directory.
 
 ## Finder
 
@@ -109,14 +109,17 @@ Run the script with up to 6 parameters:
 - dflt_options_prefix: (Optional) default prefix for (sample) Transcribe options files in the dflt_media_bucket
 ```
 
-It builds code zipfiles and replaces the tokens in the templates to reflect the parameters you specify and the zipfile names, and copys templates and zipfiles to the cfn_bucket.
+It uses `aws cloudformation package` to create and upload artefacts like layers, lambda code and finally the cloudformation templates(``msindexer.yaml`` and ``msfinder.yaml``) that references the code arteacts to s3 bucket.
 When complete, it displays the URLS for the CloudFormation templates and 1-click URLs for launching the stack create in CloudFormation , e.g.:
 ```
 Outputs
-Indexer Template URL: https://s3.eu-west-1.amazonaws.com/bobs-cfn_bucket/mediasearch/msindexer.yaml
-Finder Template URL: https://s3.eu-west-1.amazonaws.com/bobs-cfn_bucket/mediasearch/msfinder.yaml
-Indexer - CF Launch URL: https://eu-west-1.console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/create/review?templateURL=https://s3.eu-west-1.amazonaws.com/bobs-cfn_bucket/mediasearch/msindexer.yaml
-Finder - CF Launch URL: https://eu-west-1.console.aws.amazon.com/cloudformation/home?region=eu-west-1#/stacks/create/review?templateURL=https://s3.eu-west-1.amazonaws.com/bobs-cfn_bucket/mediasearch/msfinder.yaml
+MSINDEXER Template URL - https://roshans-artefacts.s3.us-east-1.amazonaws.com/localfix/msindexer.yaml
+
+MSINDEXER CF Launch URL - https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://roshans-artefacts.s3.us-east-1.amazonaws.com/localfix/msindexer.yaml&stackName=MediaSearch-MSINDEXER
+
+MSFINDER Template URL - https://roshans-artefacts.s3.us-east-1.amazonaws.com/localfix/msfinder.yaml
+
+MSFINDER CF Launch URL - https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/create/review?templateURL=https://roshans-artefacts.s3.us-east-1.amazonaws.com/localfix/msfinder.yaml&stackName=MediaSearch-MSFINDER
 Done
 ```
 If you specify a value for dflt_media_bucket and it is in a different AWS region than the cfn_bucket, the script will display a warning, e.g.:
