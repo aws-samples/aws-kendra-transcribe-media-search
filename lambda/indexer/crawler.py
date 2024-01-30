@@ -330,16 +330,17 @@ def lambda_handler(event, context):
             for s3url in s3mediaobjects.keys():
                 process_s3_media_object(STACK_NAME, bucket, s3url, s3mediaobjects.get(s3url), s3metadataobjects.get(s3url), s3transcribeoptsobjects.get(s3url), kendra_sync_job_id, TRANSCRIBE_ROLE)
                 s3files.append(s3url)
-            # detect and delete indexed docs where files that are no longer in the source bucket location
-            # reasons: file deleted, or indexer config updated to crawl a new location
-            logger.info("** Process deletions **")
-            process_deletions(DS_ID, INDEX_ID, kendra_sync_job_id=kendra_sync_job_id, s3files=s3files)
         except Exception as e:
             logger.error("Exception: " + str(e))
             put_crawler_state(STACK_NAME, 'STOPPED')            
             stop_kendra_sync_job_when_all_done(dsId=DS_ID, indexId=INDEX_ID)
             return exit_status(event, context, cfnresponse.FAILED)
 
+    # detect and delete indexed docs where files that are no longer in the source bucket location
+    # reasons: file deleted, or indexer config updated to crawl a new location
+    logger.info("** Process deletions **")
+    process_deletions(DS_ID, INDEX_ID, kendra_sync_job_id=kendra_sync_job_id, s3files=s3files)
+    
     # Stop crawler
     logger.info("** Stop crawler **")
     put_crawler_state(STACK_NAME, 'STOPPED')
