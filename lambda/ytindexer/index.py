@@ -102,13 +102,16 @@ def updateDDBTable(ydl,videoMetaData):
     tableName = os.environ['ddbTableName']
     table = dynamodb.Table(tableName)
     for video in videoMetaData['entries']:
-        video_id = video['id']
-        response = table.get_item(Key={'ytkey': video_id})
-        if 'Item' not in response:
-            logger.info("Youtube Video ID "+video_id+" has not been indexed yet. Downloading media.")
-            download_and_upload(ydl,video,table)
-        else:
-            logger.info("Youtube Video ID "+video_id+" has already been indexed. Skipping media.")
+        # There are chances that a playlist might refer to a YT Video but it is infact unavailable
+        # Check if video is available
+        if video:
+            video_id = video['id']
+            response = table.get_item(Key={'ytkey': video_id})
+            if 'Item' not in response:
+                logger.info("Youtube Video ID "+video_id+" has not been indexed yet. Downloading media.")
+                download_and_upload(ydl,video,table)
+            else:
+                logger.info("Youtube Video ID "+video_id+" has already been indexed. Skipping media.")
     return 0
 
 def empty_bucket(mediaBucket,event, context):
@@ -139,6 +142,7 @@ def lambda_handler(event, context):
     region = os.environ['AWS_REGION']
     numberOfYTVideos = int(os.environ['numberOfYTVideos'])
     ydl_opts = {
+            'ignoreerrors': True,
             'format': 'bestaudio/best',
             'cachedir': SAVE_PATH,
             'outtmpl': SAVE_PATH+'/%(id)s.%(ext)s',
