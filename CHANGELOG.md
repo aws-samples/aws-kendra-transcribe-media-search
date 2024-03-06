@@ -47,7 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.6...develop
+[Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.7...develop
+[0.3.7]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.4...v0.3.5
 [0.3.4]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.3...v0.3.4
