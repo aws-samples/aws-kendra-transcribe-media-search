@@ -67,9 +67,10 @@ pwd
 LAYERS_DIR=$PWD/layers
 FINDER_APP_DIR=$PWD/finderapp
 
-echo "Create zipfile for AWS Amplify/CodeCommit"
+echo "Create zipfile for AWS Amplify/CodeBuild"
 pushd $FINDER_APP_DIR
 finderzip=finder_$timestamp.zip
+amplifybuilder=amplify-build.py
 zip -r $tmpdir/$finderzip ./* -x "node_modules*"
 popd
 
@@ -147,6 +148,7 @@ do
   sed -e "s%<METADATA_PREFIX>%$METADATA_PREFIX%g" |
   sed -e "s%<OPTIONS_PREFIX>%$OPTIONS_PREFIX%g" |
   sed -e "s%<FINDER_ZIPFILE>%$finderzip%g" |
+  sed -e "s%<AMPLIFY_BUILDER>%$amplifybuilder%g" |
   sed -e "s%<REGION>%$region%g" >  deploy_$template
 
   S3PATH=s3://$BUCKET/$PREFIX/
@@ -173,6 +175,9 @@ do
   rm -rf deploy_$template
 done
 popd
+
+# Copy amplify build helper python
+aws s3 cp $PWD/helper/${amplifybuilder} ${S3PATH}${amplifybuilder}
 
 if $PUBLIC; then
   echo "Setting public read ACLs on published artifacts"
