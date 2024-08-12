@@ -1,5 +1,5 @@
 Description: >
-  MediaSearch Solution - Indexer stack (v0.3.7)
+  MediaSearch Solution - Indexer stack (v0.3.8)
 
 Resources:
   # This MediaBucket only holds the downloaded YouTube videos

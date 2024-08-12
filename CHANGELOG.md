@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## [Unreleased]
+## [0.3.8] - 2024-08-12
+### Fixed
+- Fix for Issue#42 - Removed dependency on AWS CodeCommit and Moved Amplify Build to CodeBuild
+
 ## [0.3.7] - 2024-03-06
 ### Fixed
 - Fix for Issue#41 - Updated the react-scripts to 5.0.1
@@ -48,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release
 
 [Unreleased]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.7...develop
+[0.3.8]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.6...v0.3.7
 [0.3.6]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.5...v0.3.6
 [0.3.5]: https://github.com/aws-samples/aws-kendra-transcribe-media-search/compare/v0.3.4...v0.3.5
