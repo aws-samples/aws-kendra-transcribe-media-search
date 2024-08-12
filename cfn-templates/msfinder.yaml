@@ -143,11 +143,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource:
-                  - !GetAtt
-                    - Repository
-                    - Arn
+                  - !Sub 'arn:aws:s3:::<ARTIFACT_BUCKET_TOKEN>/<ARTIFACT_PREFIX_TOKEN><FINDER_ZIPFILE>'
                 Action:
-                  - 'codecommit:GitPull'
+                  - 's3:GetObject'
           PolicyName: MediaRepositoryExecutionPolicy
   
   ##The role to be assumed by the application using sts_assume_role
@@ -218,33 +216,79 @@ Resources:
                   - 's3:GetObject'                
           PolicyName: AWSMediaAppCredsPolicy
       
-  ##Create CodeCommit Repository for the code of the application
-  Repository:
-    Type: 'AWS::CodeCommit::Repository'
-    Properties:
-      Code:
-        BranchName: main
-        S3:
-          Bucket: '<ARTIFACT_BUCKET_TOKEN>'
-          Key: !Join
-          - ''
-          - - '<ARTIFACT_PREFIX_TOKEN>'
-            - '<FINDER_ZIPFILE>'
-      RepositoryName: !Join
-        - ''
-        - - !Ref 'AWS::StackName'
-          - '-Repo'
-          
+         
   ##Create an App for our application in the Amplify Console
   AmplifyApp:
     Type: 'AWS::Amplify::App'
     Properties:
-      BuildSpec: |-
-        version: 1
-        frontend:
+      IAMServiceRole: !GetAtt MediaRepositoryAssumeRole.Arn
+      Name: !Join
+        - ''
+        - - !Ref 'AWS::StackName'
+          - '-App'
+
+  ##Create a branch for the App to be built
+  AmplifyBranch:
+    Type: 'AWS::Amplify::Branch'
+    Properties:
+      AppId: !GetAtt
+        - AmplifyApp
+        - AppId
+      EnableAutoBuild: true
+      BranchName: main
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "MediasearchCodeBuild-${AWS::StackName}"
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/amazonlinux2-x86_64-standard:5.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: REACT_APP_COGNITO_REGION
+            Value: !Ref 'AWS::Region'
+          - Name: REACT_APP_IDENTITY_POOL_ID
+            Value: !Ref IdentityPool
+          - Name: REACT_APP_INDEX_ID
+            Value: !Ref KendraIndexId 
+          - Name: REACT_APP_PROJECT_REGION
+            Value: !Ref 'AWS::Region'
+          - Name: REACT_APP_REGION
+            Value: !Ref 'AWS::Region'
+          - Name: REACT_APP_USER_POOL_ID
+            Value: !Ref UserPool
+          - Name: REACT_APP_WEB_CLIENT_ID
+            Value: !Ref UserPoolClient
+          - Name: REACT_APP_ROLE_ARN
+            Value: !GetAtt MediaAppCredsRole.Arn
+          - Name: REACT_APP_ENABLE_AUTH
+            Value: !If [EnableAuth, 'true', 'false']
+          - Name: REACT_APP_ENABLE_GUEST
+            Value: !Ref EnableGuestUser
+          - Name: REACT_APP_ENABLE_ACCESSTOKENS
+            Value: !Ref EnableAccessTokens
+          - Name: AMPLIFY_APP_ID
+            Value: !GetAtt AmplifyApp.AppId
+          - Name: AMPLIFY_BRANCH
+            Value: !GetAtt AmplifyBranch.BranchName
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
           phases:
-            preBuild:
+            install:
               commands:
+                - echo "Installing dependencies..."
+                - pip install requests boto3          
+            pre_build:
+              commands:              
+                - aws s3 cp s3://<ARTIFACT_BUCKET_TOKEN>/<ARTIFACT_PREFIX_TOKEN><FINDER_ZIPFILE> ./source.zip
+                - unzip source.zip -d .
+                - rm source.zip
                 - npm install
             build:
               commands:
@@ -257,53 +301,64 @@ Resources:
                 - REACT_APP_USER_POOL_ID=$REACT_APP_USER_POOL_ID
                 - REACT_APP_WEB_CLIENT_ID=$REACT_APP_WEB_CLIENT_ID
                 - REACT_APP_ROLE_ARN=$REACT_APP_ROLE_ARN
-          artifacts:
-            baseDirectory: build
-            files:
-              - '**/*'
-          cache:
-            paths:
-              - node_modules/**/*
-      EnvironmentVariables:
-        - Name: REACT_APP_COGNITO_REGION
-          Value: !Ref 'AWS::Region'
-        - Name: REACT_APP_IDENTITY_POOL_ID
-          Value: !Ref IdentityPool
-        - Name: REACT_APP_INDEX_ID
-          Value: !Ref KendraIndexId 
-        - Name: REACT_APP_PROJECT_REGION
-          Value: !Ref 'AWS::Region'
-        - Name: REACT_APP_REGION
-          Value: !Ref 'AWS::Region'
-        - Name: REACT_APP_USER_POOL_ID
-          Value: !Ref UserPool
-        - Name: REACT_APP_WEB_CLIENT_ID
-          Value: !Ref UserPoolClient
-        - Name: REACT_APP_ROLE_ARN
-          Value: !GetAtt MediaAppCredsRole.Arn
-        - Name: REACT_APP_ENABLE_AUTH
-          Value: !If [EnableAuth, 'true', 'false']
-        - Name: REACT_APP_ENABLE_GUEST
-          Value: !Ref EnableGuestUser
-        - Name: REACT_APP_ENABLE_ACCESSTOKENS
-          Value: !Ref EnableAccessTokens
-      IAMServiceRole: !GetAtt MediaRepositoryAssumeRole.Arn
-      Name: !Join
-        - ''
-        - - !Ref 'AWS::StackName'
-          - '-App'
-      Repository: !GetAtt
-        - Repository
-        - CloneUrlHttp
-  ##Create a branch for the App to be built
-  AmplifyBranch:
-    Type: 'AWS::Amplify::Branch'
+            post_build:
+              commands:
+                - aws s3 cp s3://<ARTIFACT_BUCKET_TOKEN>/<ARTIFACT_PREFIX_TOKEN><AMPLIFY_BUILDER> ./amplify-build.py
+                - cd build && zip -r ../build.zip . && cd ..
+                - python amplify-build.py --app-id "$AMPLIFY_APP_ID" --branch-name "$AMPLIFY_BRANCH" --dep-loc ./build.zip
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
     Properties:
-      AppId: !GetAtt
-        - AmplifyApp
-        - AppId
-      EnableAutoBuild: true
-      BranchName: main
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:aws:s3:::<ARTIFACT_BUCKET_TOKEN>/*'
+                  - !Sub 'arn:aws:s3:::<ARTIFACT_BUCKET_TOKEN>'      
+        - PolicyName: CodeBuildServiceRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:CreateReportGroup
+                  - codebuild:CreateReport
+                  - codebuild:UpdateReport
+                  - codebuild:BatchPutTestCases
+                  - codebuild:BatchPutCodeCoverages
+                Resource:
+                  - !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:report-group/*
+              - Effect: Allow
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents  
+              - Effect: Allow
+                Action:
+                  - amplify:StartDeployment
+                  - amplify:CreateDeployment
+                  - amplify:StopJob
+                  - amplify:GetJob
+                Resource:
+                  - !Sub arn:aws:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyApp.AppId}/*
+                  - !Sub arn:aws:amplify:${AWS::Region}:${AWS::AccountId}:apps/arn:aws:amplify:${AWS::Region}:${AWS::AccountId}:apps/${AmplifyApp.AppId}/*
 
   MediaLambdaRole:
     Type: AWS::IAM::Role
@@ -322,9 +377,10 @@ Resources:
             Version: 2012-10-17
             Statement:
               - Effect: Allow
-                Resource: '*'
+                Resource: !Sub arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/*
                 Action:
-                  - 'amplify:*'
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
           PolicyName: MediaLambdaPolicy
         
   BuildTriggerLambda:
@@ -333,11 +389,11 @@ Resources:
       Handler: lambda_function.lambda_handler
       Runtime: python3.8
       Role: !GetAtt 'MediaLambdaRole.Arn'
-      Timeout: 300
+      Timeout: 900
       Code: ../lambda/build-trigger
       Environment:
         Variables:
-          APP_ID: !GetAtt AmplifyApp.AppId
+          CB_PROJECTNAME: !Ref CodeBuildProject
       
   BuildTrigger:
     Type: Custom::BuildTrigger
@@ -345,6 +401,7 @@ Resources:
       - AmplifyApp
       - AmplifyBranch
       - MediaAppCredsRole
+      - CodeBuildProject
     Properties:
       ServiceToken: !GetAtt BuildTriggerLambda.Arn
       Param1: '<ARTIFACT_BUCKET_TOKEN>'
